@@ -26,9 +26,9 @@ const MPH_MAX = 120; // top of the speedometer dial; Hard tops out near 112 mph
 // Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
 // at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
 const MODES = {
-  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, mix: { crate: 0.5, rock: 0.25, spark: 0.2, pit: 0.05 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
-  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, mix: { crate: 0.4, rock: 0.27, spark: 0.23, pit: 0.1 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
-  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, mix: { crate: 0.35, rock: 0.27, spark: 0.23, pit: 0.15 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
+  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, mix: { crate: 0.53, rock: 0.25, spark: 0.2, pit: 0.02 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
+  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, mix: { crate: 0.46, rock: 0.27, spark: 0.23, pit: 0.04 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
+  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, mix: { crate: 0.44, rock: 0.27, spark: 0.23, pit: 0.06 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
 };
 
 const C = { ink: '#2b2118', ink2: '#5a4630', brass: '#8a6420', face: '#f8f2e4', plate: '#e8dcc0', paper: '#f1e9d6', rule: '#cdb98d' };
