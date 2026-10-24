@@ -4,73 +4,205 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Steel Junction</title>
-  <meta name="description" content="A steam railway puzzle that teaches logic gates. Set AND, OR, NOT and XOR signal boxes so the express departs at the right moments.">
+  <meta name="description" content="Drive the last steam train out while a monster chases you. Steer through bends, dodge obstacles, and fix engine faults by wiring AND, OR, NOT and XOR signal boxes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div>
+  <noscript><p class="status">Steel Junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
+
+  <!-- Main menu -->
+  <div id="menu" class="screen">
+    <div class="wrap menu">
+      <header class="menu-head">
         <h1>Steel Junction</h1>
-        <p class="tagline">A steam railway primer on logic gates</p>
-      </div>
-      <nav aria-label="Plates">
-        <ol id="plates" class="plates"></ol>
-      </nav>
-    </header>
+        <p class="tagline">Drive the last train out of the yard. Keep the engine running. Don't let it catch you.</p>
+      </header>
 
-    <noscript><p class="status">Steel Junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
-
-    <main>
-      <section aria-labelledby="plate-title">
-        <p class="plate-no" id="plate-no"></p>
-        <h2 id="plate-title" class="plate-title"></h2>
-        <p class="order"><span class="order-label">The order:</span> <span id="order"></span></p>
-
-        <div class="board">
-          <svg id="board" viewBox="0 0 560 300" role="group" aria-labelledby="plate-title"></svg>
-        </div>
-
-        <div class="drawer" role="group" aria-label="Signal box drawer">
-          <span class="drawer-label" id="drawer-label">Signal boxes:</span>
-          <div id="parts" class="parts"></div>
-          <button type="button" id="clear" class="quiet">Clear the boxes</button>
-          <button type="button" id="run" class="run">Run the test cycle</button>
-        </div>
-        <p id="status" class="status" role="status" aria-live="polite"></p>
-
-        <details id="howto" class="howto">
-          <summary>How to play</summary>
-          <ol>
-            <li>Pick a signal box from the drawer, then choose an empty slot on the board to fit it. You can also drag a box onto a slot.</li>
-            <li>Choose a slot with nothing picked to take its box out. Press Escape to put a picked box back.</li>
-            <li>Click an engine to get it ready or send it back to the shed, and watch which tracks clear.</li>
-            <li>When you think the order is met, run the test cycle. The inspector tries every mix of ready and idle engines.</li>
-          </ol>
-        </details>
-      </section>
-
-      <aside>
-        <section aria-labelledby="ledger-title" class="ledger">
-          <h2 id="ledger-title">Inspector's ledger</h2>
-          <p class="hint">Each row is one mix of engines and what the order wants the express to do.</p>
-          <table id="ledger"></table>
-          <p id="ledger-note" class="hint"></p>
-          <div id="verdict"></div>
+      <main class="menu-main">
+        <section aria-labelledby="run-title">
+          <h2 id="run-title">Endless run</h2>
+          <fieldset class="difficulty">
+            <legend>Choose a difficulty</legend>
+            <label class="mode">
+              <input type="radio" name="difficulty" value="easy" checked>
+              <span class="mode-name">Easy</span>
+              <span class="mode-text">Gentle bends, few obstacles, 40 seconds for each repair, the first four circuits.</span>
+              <span class="mode-best" id="best-easy"></span>
+            </label>
+            <label class="mode">
+              <input type="radio" name="difficulty" value="medium">
+              <span class="mode-name">Medium</span>
+              <span class="mode-text">Sharper bends, more obstacles, a faster monster, 32 seconds for each repair.</span>
+              <span class="mode-best" id="best-medium"></span>
+            </label>
+            <label class="mode">
+              <input type="radio" name="difficulty" value="hard">
+              <span class="mode-name">Hard</span>
+              <span class="mode-text">Tight bends, crowded tracks, frequent faults, 26 seconds for each repair, the hardest circuits.</span>
+              <span class="mode-best" id="best-hard"></span>
+            </label>
+          </fieldset>
+          <div class="menu-actions">
+            <button type="button" id="start" class="run">Start the run</button>
+            <button type="button" id="to-practice" class="quiet">Practise the signal boxes</button>
+          </div>
+          <details class="howto">
+            <summary>How to play the run</summary>
+            <ol>
+              <li>Steer with the left and right arrow keys, A and D, or the arrow buttons at the bottom of the screen.</li>
+              <li>Bends push the train outward. Steer into a bend as it starts, or you'll run off the track and lose speed.</li>
+              <li>Rocks and crates block the tracks. Move onto a clear track to get past.</li>
+              <li>The monster chases from behind. Watch the mirror at the top. Every time you slow down it gains, and if it reaches the train the run is over.</li>
+              <li>Engine faults stop the train. Fit the right signal boxes and pass the test cycle before the timer runs out. The faster you fix it, the less ground the monster gains. Run out of time and the engine crawls.</li>
+              <li>Press P or Escape to pause.</li>
+            </ol>
+          </details>
         </section>
 
-        <section aria-labelledby="lesson-title" class="lesson">
-          <h2 id="lesson-title"></h2>
-          <p id="lesson-text"></p>
+        <section aria-labelledby="chain-title" class="chain">
+          <h2 id="chain-title">Devnet leaderboard</h2>
+          <p class="hint">Finished runs can be recorded on the Solana devnet with a Phantom wallet. This list is read straight from the chain, so every entry links to its transaction.</p>
+          <button type="button" id="board-load" class="quiet">Load the leaderboard</button>
+          <p id="board-note" class="hint" role="status"></p>
+          <ol id="board-list" class="board-list"></ol>
         </section>
-      </aside>
-    </main>
+      </main>
+    </div>
   </div>
+
+  <!-- The run -->
+  <div id="drive" class="screen drive" hidden>
+    <canvas id="view" tabindex="-1" role="img" aria-label="View from the cab: the tracks ahead, the boiler, and a mirror showing the monster behind"></canvas>
+    <div class="hud">
+      <div class="hud-group">
+        <p class="gauge"><span class="gauge-label">Distance</span> <span id="hud-distance">0 m</span></p>
+        <p class="gauge"><span class="gauge-label">Speed</span> <span id="hud-speed">0 km/h</span></p>
+      </div>
+      <div class="hud-group">
+        <div class="gauge">
+          <span class="gauge-label">Monster</span> <span id="hud-gap">60 m behind</span>
+          <span class="meter" aria-hidden="true"><span id="hud-meter"></span></span>
+        </div>
+        <button type="button" id="pause-btn" class="quiet hud-button">Pause</button>
+      </div>
+    </div>
+    <p id="callout" class="callout" aria-hidden="true"></p>
+    <p id="drive-live" class="sr-only" role="status" aria-live="assertive"></p>
+    <div class="steer">
+      <button type="button" id="steer-left" aria-label="Steer left">◀</button>
+      <button type="button" id="steer-right" aria-label="Steer right">▶</button>
+    </div>
+    <div id="paused" class="overlay" hidden>
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="paused-title">
+        <h2 id="paused-title">Paused</h2>
+        <p>The monster is waiting too.</p>
+        <div class="menu-actions">
+          <button type="button" id="resume" class="run">Keep driving</button>
+          <button type="button" id="quit" class="quiet">Leave to the main menu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal box practice: the original puzzle, all eleven plates -->
+  <div id="practice" class="screen" hidden>
+    <div class="wrap">
+      <header>
+        <div>
+          <button type="button" id="practice-back" class="quiet back">Main menu</button>
+          <h1>Signal box practice</h1>
+          <p class="tagline">The same circuits you'll fix in an engine fault, with no clock running.</p>
+        </div>
+        <nav aria-label="Plates">
+          <ol id="plates" class="plates"></ol>
+        </nav>
+      </header>
+
+      <div id="practice-slot">
+        <main id="workshop">
+          <section aria-labelledby="plate-title">
+            <p class="plate-no" id="plate-no"></p>
+            <h2 id="plate-title" class="plate-title"></h2>
+            <p class="order"><span class="order-label">The order:</span> <span id="order"></span></p>
+
+            <div class="board">
+              <svg id="board" viewBox="0 0 560 300" role="group" aria-labelledby="plate-title"></svg>
+            </div>
+
+            <div class="drawer" role="group" aria-label="Signal box drawer">
+              <span class="drawer-label" id="drawer-label">Signal boxes:</span>
+              <div id="parts" class="parts"></div>
+              <button type="button" id="clear" class="quiet">Clear the boxes</button>
+              <button type="button" id="run" class="run">Run the test cycle</button>
+            </div>
+            <p id="status" class="status" role="status" aria-live="polite"></p>
+
+            <details id="howto" class="howto">
+              <summary>How to fix a circuit</summary>
+              <ol>
+                <li>Pick a signal box from the drawer, then choose an empty slot on the board to fit it. You can also drag a box onto a slot.</li>
+                <li>Choose a slot with nothing picked to take its box out. Press Escape to put a picked box back.</li>
+                <li>Click an engine to get it ready or send it back to the shed, and watch which tracks clear.</li>
+                <li>When you think the order is met, run the test cycle. The inspector tries every mix of ready and idle engines.</li>
+              </ol>
+            </details>
+          </section>
+
+          <aside>
+            <section aria-labelledby="ledger-title" class="ledger">
+              <h2 id="ledger-title">Inspector's ledger</h2>
+              <p class="hint">Each row is one mix of engines and what the order wants the express to do.</p>
+              <table id="ledger"></table>
+              <p id="ledger-note" class="hint"></p>
+              <div id="verdict"></div>
+            </section>
+
+            <section aria-labelledby="lesson-title" class="lesson">
+              <h2 id="lesson-title"></h2>
+              <p id="lesson-text"></p>
+            </section>
+          </aside>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <!-- Engine fault: the workshop moves in here while the clock runs -->
+  <dialog id="repair" class="repair" aria-labelledby="repair-title">
+    <div class="repair-head">
+      <div>
+        <h2 id="repair-title">Engine fault</h2>
+        <p>Fix the signal circuit to restart the engine. The monster gains while you work.</p>
+      </div>
+      <p class="timer"><span id="repair-time">0:30</span> left</p>
+    </div>
+    <div class="timebar" aria-hidden="true"><span id="repair-bar"></span></div>
+    <div id="repair-slot"></div>
+  </dialog>
+
+  <!-- End of a run -->
+  <dialog id="over" class="over" aria-labelledby="over-title">
+    <h2 id="over-title">The monster caught the train</h2>
+    <p id="over-stats"></p>
+    <p id="over-best" class="hint"></p>
+    <div class="menu-actions">
+      <button type="button" id="again" class="run">Run again</button>
+      <button type="button" id="to-menu" class="quiet">Main menu</button>
+    </div>
+    <section class="chain" aria-labelledby="record-title">
+      <h3 id="record-title">Record this run on Solana</h3>
+      <p class="hint">Sign one devnet transaction in Phantom to put this distance on the shared leaderboard. Devnet uses free test SOL, so it costs nothing real.</p>
+      <button type="button" id="record" class="quiet">Record with Phantom</button>
+      <p id="record-note" class="hint" role="status"></p>
+    </section>
+  </dialog>
 
   <script src="logic.js"></script>
   <script src="app.js"></script>
+  <script src="solana.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>

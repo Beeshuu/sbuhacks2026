@@ -21,4 +21,12 @@ assert.deepStrictEqual(inspect(LEVELS[2], {}).map((r) => r.boilers), [
   { A: false, B: false }, { A: false, B: true }, { A: true, B: false }, { A: true, B: true },
 ]);
 
-console.log(`All ${LEVELS.length} plates check out.`);
+// Leaderboard memos come from a public chain, so the parser must reject anything off-format.
+const { parseRunMemo } = require('./solana.js');
+assert.deepStrictEqual(parseRunMemo('[13] SJ1|hard|1234'), { difficulty: 'hard', metres: 1234 });
+assert.deepStrictEqual(parseRunMemo('SJ1|easy|0'), { difficulty: 'easy', metres: 0 });
+for (const bad of ['SJTEST|easy|1', 'SJ1|insane|5', 'SJ1|hard|-3', 'SJ1|hard|99999999', 'SJ1|hard|12<script>', '']) {
+  assert.strictEqual(parseRunMemo(bad), null, `accepted bad memo: ${bad}`);
+}
+
+console.log(`All ${LEVELS.length} plates check out, and the leaderboard parser rejects bad memos.`);

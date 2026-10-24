@@ -202,3 +202,133 @@ aside h2 { margin: 0 0 4px; font-size: 1.6rem; }
   .rod { transition: none; }
   .pipe.hot .flow, .puff { animation: none !important; }
 }
+
+/* ---- Screens -------------------------------------------------------------- */
+[hidden] { display: none !important; }
+h3 { font-family: var(--display); font-weight: 400; font-size: 1.4rem; margin: 0 0 4px; }
+.menu-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.menu-actions .run { margin-left: 0; }
+.back { margin-bottom: 12px; }
+
+/* Main menu */
+.menu-head { display: block; }
+.menu-head .tagline { max-width: 46ch; font-size: 1.1rem; }
+.menu-main h2 { margin: 0 0 8px; font-size: 1.8rem; }
+.difficulty { border: 0; margin: 0; padding: 0; }
+.difficulty legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+.mode {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: baseline;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--brass);
+  border-radius: 4px;
+  background: var(--face);
+  cursor: pointer;
+}
+.mode:hover { border-color: var(--ink); }
+.mode:has(input:checked) { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
+.mode input { grid-row: span 3; width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
+.mode-name { font-family: var(--display); font-size: 1.45rem; line-height: 1.2; }
+.mode-text, .mode-best { grid-column: 2; }
+.mode-best { color: var(--ink-2); font-size: 0.95rem; }
+.chain { margin-top: 0; }
+.over .chain { margin-top: 24px; padding-top: 16px; border-top: 4px double var(--brass); }
+.board-list { margin: 8px 0 0; padding-left: 1.4em; font-variant-numeric: tabular-nums; }
+.board-list li + li { margin-top: 4px; }
+a { color: var(--ink); text-underline-offset: 3px; }
+
+/* ---- The run ------------------------------------------------------------- */
+.drive { position: fixed; inset: 0; overflow: hidden; background: var(--paper); }
+#view { display: block; width: 100%; height: 100%; touch-action: none; }
+#view:focus { outline: none; } /* the canvas only takes focus so key presses land on the game */
+.hud {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+}
+.hud-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.gauge {
+  margin: 0;
+  padding: 4px 10px;
+  background: var(--face);
+  border: 1px solid var(--brass);
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+.gauge-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--ink-2); }
+.meter { display: block; width: 120px; height: 6px; margin: 4px 0 2px; background: var(--plate); border: 1px solid var(--brass); }
+.meter span { display: block; height: 100%; background: var(--ink); }
+.hud-button { pointer-events: auto; background: var(--face); }
+.callout {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 6px 18px;
+  text-align: center;
+  font-family: var(--display);
+  font-size: clamp(1.4rem, 4vw, 2.3rem);
+  background: var(--face);
+  border: 1px solid var(--brass);
+  border-radius: 3px;
+  pointer-events: none;
+}
+.callout:empty { display: none; }
+.steer {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.steer button {
+  width: 76px;
+  height: 76px;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  font-size: 1.8rem;
+  background: var(--face);
+  border: 2px solid var(--brass);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.steer button:active { background: var(--plate); }
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(43, 33, 24, 0.55); }
+.panel { max-width: 420px; padding: 24px; background: var(--paper); border: 1px solid var(--brass); border-radius: 4px; }
+.panel h2 { margin: 0; font-size: 2rem; }
+
+/* ---- Dialogs ------------------------------------------------------------- */
+dialog {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--brass);
+  border-radius: 4px;
+  padding: 18px 20px;
+}
+dialog::backdrop { background: rgba(43, 33, 24, 0.6); }
+.repair { width: min(1120px, calc(100% - 16px)); max-height: calc(100% - 16px); }
+.repair #workshop { margin-top: 8px; }
+.repair-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 24px; }
+.repair-head h2 { margin: 0; font-size: 2rem; }
+.repair-head p { margin: 0; max-width: 56ch; }
+.timer { font-family: var(--display); font-size: 2rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.timebar { display: block; height: 10px; margin: 10px 0 4px; background: var(--plate); border: 1px solid var(--brass); }
+.timebar span { display: block; height: 100%; background: var(--ink); }
+.over { width: min(560px, calc(100% - 32px)); }
+.over h2 { margin: 0 0 8px; font-size: 2rem; }

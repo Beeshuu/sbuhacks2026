@@ -23,3 +23,6 @@ Moving dashes on clear track, smoke on ready engines, and the express pulling aw
 
 ## Dial
 ENERGY 2 / RHYTHM 1 / MOTION 2
+
+## The run (first-person mode)
+Same palette and type. The cab frame and boiler are ink and cream, the track is ballast with dark rails, and the monster is an ink silhouette seen in a brass-framed mirror. HUD panels are cream cards with ink text so they stay readable over the moving scene. Motion here is the game itself; with reduced motion on, screen shake and smoke animation are off.

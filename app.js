@@ -22,7 +22,8 @@ function save() {
   try { localStorage.setItem(STORE, JSON.stringify(state.done)); } catch { /* blocked storage: progress lasts this visit only */ }
 }
 
-const state = { plate: 0, valves: {}, boilers: {}, part: null, running: false, rows: null, testing: -1, done: load() };
+// repair is set while the driving game has a timed engine fault open (see Workshop.repair below).
+const state = { plate: 0, valves: {}, boilers: {}, part: null, running: false, rows: null, testing: -1, done: load(), repair: null };
 
 function svg(tag, attrs, parent) {
   const e = document.createElementNS(NS, tag);
@@ -272,6 +273,7 @@ async function runCycle() {
   }
 
   const all = settings(lv);
+  const job = state.repair;
   const before = { ...state.boilers };
   const btn = $('run');
   state.running = true;
@@ -284,7 +286,8 @@ async function runCycle() {
     state.boilers = { ...all[i] };
     const sim = update();
     renderLedger();
-    await wait(reduced ? 300 : Math.min(1000, 5000 / all.length)); // eight-row plates run faster per row
+    await wait(state.repair ? 120 : reduced ? 300 : Math.min(1000, 5000 / all.length)); // repairs are on a clock, so test fast
+    if (job !== state.repair) return; // the repair timer ran out mid-test
     state.rows[i] = { got: sim.P, ok: sim.P === lv.target(all[i]) };
   }
   state.running = false;
@@ -302,6 +305,7 @@ async function runCycle() {
 }
 
 function win() {
+  if (state.repair) return endRepair(true);
   if (!state.done.includes(state.plate)) {
     state.done.push(state.plate);
     save();
@@ -333,7 +337,6 @@ function goTo(i) {
   $('lesson-title').textContent = lv.lesson.name;
   $('lesson-text').textContent = lv.lesson.text;
   $('verdict').replaceChildren();
-  document.title = `Plate ${ROMAN[i]}: ${lv.title} · Steel Junction`;
   buildBoard();
   update();
   renderLedger();
@@ -373,6 +376,50 @@ narrow.addEventListener('change', () => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.part) pick(null);
 });
+
+// The driving game borrows this workshop for engine faults: one plate, a countdown, and a pass or fail.
+function endRepair(ok) {
+  const job = state.repair;
+  if (!job) return;
+  state.repair = null;
+  clearInterval(job.tick);
+  Object.assign(state, { running: false, testing: -1 });
+  $('run').textContent = 'Run the test cycle';
+  $('repair').close();
+  $('practice-slot').append($('workshop'));
+  job.resolve(ok);
+}
+
+const Workshop = {
+  // Resolves true when the circuit is fixed in time, false when the clock runs out, null when cancelled.
+  repair(plate, seconds) {
+    return new Promise((resolve) => {
+      $('repair-slot').append($('workshop'));
+      goTo(plate);
+      const deadline = performance.now() + seconds * 1000;
+      const show = () => {
+        const left = Math.max(0, (deadline - performance.now()) / 1000);
+        const whole = Math.ceil(left);
+        $('repair-time').textContent = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+        $('repair-bar').style.width = `${(left / seconds) * 100}%`;
+        if (left <= 0) endRepair(false);
+      };
+      state.repair = { resolve, tick: setInterval(show, 100) };
+      show();
+      $('repair').showModal();
+      say('Engine fault. Fit the right signal boxes, then run the test cycle.');
+    });
+  },
+  cancel() {
+    if (!state.repair) return;
+    const { resolve } = state.repair;
+    state.repair.resolve = () => {};
+    endRepair(false);
+    resolve(null);
+  },
+};
+// A fault cannot be dismissed with Escape; Escape still drops a picked box.
+$('repair').addEventListener('cancel', (e) => e.preventDefault());
 
 $('howto').open = state.done.length === 0;
 const firstOpen = LEVELS.findIndex((_, i) => !state.done.includes(i));
