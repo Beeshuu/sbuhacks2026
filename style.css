@@ -424,9 +424,6 @@ kbd {
   .turn-sign svg { width: 40px; height: 40px; }
 }
 
-/* Steampunk speedometer in the HUD */
-.speedo { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 8px; padding: 4px 10px 4px 4px; }
-.speedo svg { grid-row: span 2; width: 84px; height: 84px; display: block; }
-.speedo .gauge-label { align-self: end; }
-#hud-speed { align-self: start; font-variant-numeric: tabular-nums; min-width: 4.2em; }
-@media (max-width: 600px) { .speedo svg { width: 64px; height: 64px; } }
+/* Steampunk speedometer in the HUD: just the brass gauge, no card behind it. */
+.speedo svg { width: 96px; height: 96px; display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)); } /* lifts the brass off any sky colour */
+@media (max-width: 600px) { .speedo svg { width: 72px; height: 72px; } }

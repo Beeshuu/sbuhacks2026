@@ -819,7 +819,9 @@ function buildSpeedo() {
       add('text', { x: tx, y: ty + 3, 'text-anchor': 'middle', 'font-size': 8, 'font-weight': 600, fill: '#2b2118' }).textContent = mph;
     }
   }
-  add('text', { y: 20, 'text-anchor': 'middle', 'font-size': 7, fill: '#5a4630', 'font-style': 'italic' }).textContent = 'mph';
+  // The reading sits on the dial's own face, so the gauge needs no card behind it.
+  add('text', { id: 'speedo-read', y: 21, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, fill: '#2b2118' }).textContent = '0';
+  add('text', { y: 30, 'text-anchor': 'middle', 'font-size': 6.5, fill: '#5a4630', 'font-style': 'italic' }).textContent = 'mph';
   const needle = add('g', { id: 'speedo-needle', transform: `rotate(${dialAngle(0)})` });
   add('path', { d: 'M-6 -2 L32 0 L-6 2 Z', fill: '#a3361f' }, needle);
   add('circle', { r: 5, fill: 'url(#speedo-brass)', stroke: '#5a3d14', 'stroke-width': 1 });
@@ -830,6 +832,7 @@ function hud() {
   el('hud-distance').textContent = `${Math.floor(run.z / SEG).toLocaleString()} m`;
   const mph = run.speed * MPH_PER_UNIT;
   el('hud-speed').textContent = `${Math.round(mph)} mph`;
+  el('speedo-read').textContent = Math.round(mph);
   el('speedo-needle').setAttribute('transform', `rotate(${dialAngle(mph)})`);
   el('hud-gap').textContent = `${Math.max(0, Math.round(run.gap))} m behind`;
   el('hud-meter').style.width = `${clamp(run.gap / GAP_MAX, 0, 1) * 100}%`;
