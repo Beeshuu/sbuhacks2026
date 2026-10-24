@@ -17,15 +17,18 @@ const HIT_RANGE = 0.42; // obstacle half-width plus train half-width, in track h
 const FAULT_EVERY = [750, 1500]; // metres between engine faults, on every difficulty
 const FAULT_WARN = 200; // metres of warning before a fault
 const COUNTDOWN = 3; // seconds before the train moves again after a repair
+const ROCK_DELAY = 3; // seconds between hitting a rock and its engine fault
+const PIT_LENGTH = 6; // metres of missing track: long enough to read from a distance
+const PIT_FROM = 400; // no pits in the first 400 m, while new players learn to steer
 const MPH_PER_UNIT = 2.23694 / SEG; // world units per second to miles per hour (1 segment = 1 metre)
 const MPH_MAX = 120; // top of the speedometer dial; Hard tops out near 112 mph
 
 // Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
 // at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
 const MODES = {
-  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
-  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
-  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
+  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, mix: { crate: 0.5, rock: 0.25, spark: 0.2, pit: 0.05 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
+  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, mix: { crate: 0.4, rock: 0.27, spark: 0.23, pit: 0.1 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
+  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, mix: { crate: 0.35, rock: 0.27, spark: 0.23, pit: 0.15 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
 };
 
 const C = { ink: '#2b2118', ink2: '#5a4630', brass: '#8a6420', face: '#f8f2e4', plate: '#e8dcc0', paper: '#f1e9d6', rule: '#cdb98d' };
@@ -79,7 +82,7 @@ function newRun(mode, category) {
     mode, cfg, category, bag: [],
     z: 0, x: 0, speed: cfg.maxSpeed * 0.5, gap: 60, time: 0,
     segs: new Array(RING), written: 0, plan: [], lastObstacle: 0,
-    faultAt: rand(...FAULT_EVERY), warned: false, countdown: 0, resume: '', turn: 0, repairs: 0, hits: 0,
+    faultAt: rand(...FAULT_EVERY), warned: false, pendingFault: 0, pit: null, countdown: 0, resume: '', turn: 0, repairs: 0, hits: 0,
     paused: null, over: false, shake: 0, callout: null, smoke: [], hills: 0, hud: 0,
   };
   fillTrack();
@@ -107,9 +110,23 @@ function addSegment() {
   const abs = run.written++;
   const seg = { curve: run.plan.shift(), obstacles: [] };
   // Leave one track clear in every row, and space rows out so there is always time to react.
-  if (abs > 70 && abs - run.lastObstacle > 14 && Math.random() < run.cfg.obstacles) {
+  if (run.pit) {
+    seg.obstacles.push({ x: run.pit.x, kind: 'pit', hit: false, last: run.pit.left === 1 });
+    if (--run.pit.left === 0) run.pit = null;
+  } else if (abs > 70 && abs - run.lastObstacle > 14 && Math.random() < run.cfg.obstacles) {
     const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, Math.random() < 0.3 ? 2 : 1);
-    seg.obstacles = lanes.map((l) => ({ x: LANES[l], kind: Math.random() < 0.5 ? 'rock' : 'crate', hit: false }));
+    let pitPlaced = false;
+    for (const l of lanes) {
+      let kind = pickKind(run.cfg.mix);
+      if (kind === 'pit' && (pitPlaced || abs < PIT_FROM)) kind = 'crate'; // never two pits in a row, none early on
+      if (kind === 'pit') {
+        pitPlaced = true;
+        run.pit = { x: LANES[l], left: PIT_LENGTH - 1 };
+        seg.obstacles.push({ x: LANES[l], kind, hit: false, first: true });
+      } else {
+        seg.obstacles.push({ x: LANES[l], kind, hit: false });
+      }
+    }
     run.lastObstacle = abs;
   }
   // Trees and bushes beside the line, for colour and a sense of speed. Purely visual.
@@ -117,6 +134,12 @@ function addSegment() {
     ? [{ x: (Math.random() < 0.5 ? -1 : 1) * rand(1.6, 3.4), kind: Math.random() < 0.6 ? 'tree' : 'bush' }]
     : [];
   run.segs[abs % RING] = seg;
+}
+
+function pickKind(mix) {
+  let roll = Math.random();
+  for (const [kind, chance] of Object.entries(mix)) if ((roll -= chance) < 0) return kind;
+  return 'crate';
 }
 
 function fillTrack() {
@@ -168,10 +191,23 @@ function update(dt) {
       if (!ob.hit && Math.abs(run.x - ob.x) < HIT_RANGE) {
         ob.hit = true;
         run.hits++;
-        run.speed *= 0.35;
         run.shake = 1;
-        shout(ob.kind === 'rock' ? 'Hit a rock!' : 'Smashed a crate!');
-        announce(`You hit a ${ob.kind}. The train slowed down.`);
+        if (ob.kind === 'pit') return finish('pit');
+        if (ob.kind === 'crate') {
+          run.speed *= 0.35;
+          shout('Smashed a crate! Speed lost.');
+          announce('You hit a crate. The train slowed down.');
+        } else if (ob.kind === 'rock') {
+          run.speed *= 0.35;
+          if (!run.pendingFault) run.pendingFault = ROCK_DELAY;
+          shout('Hit a rock! Engine damaged.', 2.4);
+          announce(`You hit a rock. The train slowed down and the engine will fault in ${ROCK_DELAY} seconds.`);
+        } else {
+          shout('Track spark! Engine damaged.');
+          announce('A track spark damaged the engine.');
+          startRepair();
+          return;
+        }
       }
     }
   }
@@ -191,6 +227,7 @@ function update(dt) {
   if (run.gap < 20 && Math.floor(run.time * 2) % 4 === 0) say('It\'s right behind you!', 0.4);
 
   run.shake = Math.max(0, run.shake - dt * 2.5);
+  if (run.pendingFault > 0 && (run.pendingFault -= dt) <= 0) return startRepair();
   const metres = run.z / SEG;
   if (!run.warned && run.faultAt - metres < FAULT_WARN) {
     run.warned = true;
@@ -217,6 +254,7 @@ function tickCountdown(dt) {
 // While a fault is open everything stops, the monster included. Running out of time costs speed, not distance.
 async function startRepair() {
   const { cfg } = run;
+  run.pendingFault = 0;
   run.paused = 'repair';
   keys.left = keys.right = false;
   announce('Engine fault. Answer the question in the pop-up before the timer runs out.');
@@ -454,6 +492,49 @@ function drawSkyline(w, h, hz) {
   }
 }
 
+// A gap where the track is cut away: a dark hole across one lane with orange hazard edges, so it
+// shows up even at night.
+let pitMarks = []; // pits drawn this frame, so their edges can be lit again over the night shade
+
+function drawPit(ob, p1, p2, edgesOnly = false) {
+  if (!edgesOnly) {
+    strip(p1, p2, ob.x, 0.25, '#1b1411');
+    pitMarks.push([ob, p1, p2]);
+  }
+  strip(p1, p2, ob.x - 0.25, 0.032, '#ff7a3d');
+  strip(p1, p2, ob.x + 0.25, 0.032, '#ff7a3d');
+  const edge = (p) => quad(p.x + (ob.x - 0.27) * p.w, p.y - p.w * 0.012, p.x + (ob.x + 0.27) * p.w, p.y - p.w * 0.012,
+    p.x + (ob.x + 0.27) * p.w, p.y + p.w * 0.012, p.x + (ob.x - 0.27) * p.w, p.y + p.w * 0.012, '#ff7a3d');
+  if (ob.first) edge(p1);
+  if (ob.last) edge(p2);
+}
+
+// A track spark: a crackling burst on the rails that flickers.
+function drawSpark(sx, y, wide) {
+  const flick = calm ? 1 : 0.85 + 0.3 * Math.sin(run.time * 40 + sx);
+  const cy = y - wide * 0.25;
+  const glow = ctx.createRadialGradient(sx, cy, 0, sx, cy, wide * 0.7 * flick);
+  glow.addColorStop(0, 'rgba(255, 236, 140, 0.95)');
+  glow.addColorStop(0.4, 'rgba(255, 190, 70, 0.55)');
+  glow.addColorStop(1, 'rgba(255, 160, 40, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(sx, cy, wide * 0.7 * flick, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff6c8';
+  ctx.strokeStyle = '#ffb02e';
+  ctx.lineWidth = Math.max(1, wide * 0.03);
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + (calm ? 0 : run.time * 3);
+    const r = (i % 2 ? 0.12 : 0.42 * (0.8 + 0.4 * ((i * 7) % 5) / 5)) * wide * flick;
+    ctx.lineTo(sx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.8);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
 function drawObstacle(ob, p, clipY) {
   const wide = p.w * 0.48;
   const tall = ob.kind === 'rock' ? wide * 0.75 : wide * 0.85;
@@ -464,7 +545,9 @@ function drawObstacle(ob, p, clipY) {
   ctx.clip();
   ctx.lineWidth = Math.max(1, wide * 0.04);
   ctx.strokeStyle = C.ink;
-  if (ob.kind === 'rock') {
+  if (ob.kind === 'spark') {
+    drawSpark(sx, p.y, wide);
+  } else if (ob.kind === 'rock') {
     ctx.fillStyle = '#7a6750';
     ctx.beginPath();
     ctx.ellipse(sx, p.y - tall / 2, wide / 2, tall / 2, 0, 0, Math.PI * 2);
@@ -561,6 +644,7 @@ function drawTrack(w, h) {
       strip(p1, mid, 0, 0.9, '#9a8058');
     }
     for (const lane of LANES) for (const side of [-0.11, 0.11]) strip(p1, p2, lane + side, 0.018, '#4a3b2a');
+    for (const ob of seg.obstacles) if (ob.kind === 'pit') drawPit(ob, p1, p2);
     maxY = p2.y;
     if (seg.obstacles.length || seg.scenery.length || abs % 25 === 0) shown.push({ seg, abs, p1, clip });
   }
@@ -568,7 +652,7 @@ function drawTrack(w, h) {
     const { seg, abs, p1, clip } = shown[i];
     if (abs % 25 === 0) for (const side of [-1.35, 1.35]) drawPole(p1.x + side * p1.w, p1.y, p1.w, clip);
     for (const item of seg.scenery) drawTree(item, p1, clip);
-    for (const ob of seg.obstacles) if (!ob.hit) drawObstacle(ob, p1, clip);
+    for (const ob of seg.obstacles) if (!ob.hit && ob.kind !== 'pit') drawObstacle(ob, p1, clip);
   }
 }
 
@@ -903,9 +987,13 @@ function render(dt) {
   ctx.save();
   if (run.shake > 0 && !calm) ctx.translate((Math.random() - 0.5) * run.shake * w * 0.015, (Math.random() - 0.5) * run.shake * h * 0.015);
   sky = skyAt(run.z / SEG);
+  pitMarks = [];
   drawSky(w, h);
   drawTrack(w, h);
-  if (sky.dark > 0.02) drawNight(w, h);
+  if (sky.dark > 0.02) {
+    drawNight(w, h);
+    for (const [ob, p1, p2] of pitMarks) drawPit(ob, p1, p2, true); // hazard edges stay bright at night
+  }
   drawTrain(w, h);
   stepSmoke(dt, w, h);
   if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
@@ -976,7 +1064,8 @@ function hud() {
     sign.dataset.dir = run.turn > 0 ? 'right' : 'left';
     el('turn-text').textContent = run.turn > 0 ? 'Bend right' : 'Bend left';
   }
-  el('hud-fault').hidden = !run.warned || !!run.paused;
+  el('hud-fault').hidden = !(run.warned || run.pendingFault > 0) || !!run.paused;
+  el('hud-fault').textContent = run.pendingFault > 0 ? 'Engine damaged' : 'Engine trouble ahead';
   placeMirror(); // the HUD can gain a row when the fault notice shows
 }
 
@@ -1061,7 +1150,7 @@ function startRun() {
   raf = requestAnimationFrame(frame);
 }
 
-function finish() {
+function finish(cause = 'monster') {
   if (run.over) return;
   run.over = true;
   cancelAnimationFrame(raf);
@@ -1077,7 +1166,7 @@ function finish() {
   el('score-error').textContent = '';
   el('score-name').removeAttribute('aria-invalid');
   el('score-name').value = lastName();
-  announce(`The monster caught the train after ${metres} metres.`);
+  announce(cause === 'pit' ? `The train fell into a pit after ${metres} metres.` : `The monster caught the train after ${metres} metres.`);
   el('over').showModal();
   if (!form.hidden) el('score-name').focus();
 }

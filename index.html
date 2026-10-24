@@ -111,7 +111,14 @@
           <h2 id="brief-rules">How to survive</h2>
           <ul class="rules">
             <li><strong>Bends:</strong> a sign on the right shows which way the next bend turns. Bends push the train outward, so steer into one as it starts, or you'll run off the track and slow down.</li>
-            <li><strong>Obstacles:</strong> rocks and crates block the tracks. Move onto a clear track.</li>
+            <li><strong>Obstacles:</strong> steer onto a clear track. There is always at least one.
+              <ul class="legend">
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="6" y="8" width="28" height="26" fill="#b08a4a" stroke="#2b2118" stroke-width="2.5"/><path d="M6 8 L34 34 M34 8 L6 34" stroke="#2b2118" stroke-width="2.5"/></svg><span><strong>Crate:</strong> slows you down.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#ffd36a" opacity="0.5"/><path d="M20 4 L23 16 L35 13 L25 21 L33 32 L20 25 L9 33 L15 21 L5 13 L17 16 Z" fill="#fff6c8" stroke="#ffb02e" stroke-width="2"/></svg><span><strong>Track spark:</strong> damages the engine. A question opens straight away.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="24" rx="15" ry="11" fill="#7a6750" stroke="#2b2118" stroke-width="2.5"/><ellipse cx="15" cy="19" rx="5" ry="2.5" fill="#9c8a70"/></svg><span><strong>Rock:</strong> slows you down and damages the engine. A question opens 3 seconds later.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 6 H28 L34 34 H6 Z" fill="#1b1411" stroke="#ff7a3d" stroke-width="3" stroke-linejoin="round"/></svg><span><strong>Track pit:</strong> the rails are cut away. Drive into one and the run is over.</span></li>
+              </ul>
+            </li>
             <li><strong>The monster:</strong> it chases from behind; watch the mirror at the top. It gains whenever you slow down. If it reaches the train, the run is over.</li>
             <li><strong>Engine faults:</strong> one comes every 750 to 1,500 m, and an "Engine trouble ahead" notice warns you first. <span id="brief-fault"></span> The monster waits while you work, but if the timer runs out the engine crawls. A 3-second countdown follows every repair.</li>
           </ul>
