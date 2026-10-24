@@ -98,11 +98,19 @@ main {
 @keyframes flow { to { stroke-dashoffset: -16; } }
 
 .window { fill: var(--plate); stroke: var(--brass); stroke-width: 1.5; }
+/* Engine: cream body with brass trim, ink for the iron parts (smokebox, chimney, roof, cowcatcher). */
+.loco { fill: var(--face); stroke: var(--brass); stroke-width: 2; stroke-linejoin: round; }
+.iron { fill: var(--ink); }
+.band { stroke: var(--brass); stroke-width: 1.5; }
+.wheel { fill: var(--face); stroke: var(--ink); stroke-width: 2.5; }
+.spoke { stroke: var(--ink); stroke-width: 1; }
+.rod-bar { stroke: var(--brass); stroke-width: 3; stroke-linecap: round; }
+.boiler:hover .loco { stroke: var(--ink); }
 .frame { fill: var(--brass); }
 /* Smoke only shows on a ready engine; its rise repeats only while the engine stays ready. */
 .puff { fill: var(--face); stroke: var(--brass); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
-.boiler.hot .puff { opacity: 1; animation: puff 1.6s ease-out infinite; }
-.boiler.hot .puff + .puff { animation-delay: 0.4s; }
+.boiler.hot .puff, .piston.fired .puff { opacity: 1; animation: puff 1.6s ease-out infinite; }
+.boiler.hot .puff + .puff, .piston.fired .puff + .puff { animation-delay: 0.4s; }
 @keyframes puff { from { transform: translateY(5px) scale(0.7); } to { transform: translateY(-3px) scale(1); } }
 
 .slot .body { fill: var(--plate); stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 6 5; }
@@ -192,5 +200,5 @@ aside h2 { margin: 0 0 4px; font-size: 1.6rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .rod { transition: none; }
-  .pipe.hot .flow, .boiler.hot .puff { animation: none; }
+  .pipe.hot .flow, .puff { animation: none !important; }
 }

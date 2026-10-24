@@ -48,11 +48,38 @@ function pressable(g, fn) {
 // Board geometry: tracks leave a node's right edge and enter the next node's left edge.
 const outPort = (n) => [n.x + (n.kind === 'boiler' ? R : SLOT_W / 2), n.y];
 const inPort = (n, i, count) =>
-  n.kind === 'piston' ? [n.x - 44, n.y] : [n.x - SLOT_W / 2, n.y + (count === 2 ? (i ? 16 : -16) : 0)];
+  n.kind === 'piston' ? [n.x - 50, n.y] : [n.x - SLOT_W / 2, n.y + (count === 2 ? (i ? 16 : -16) : 0)];
 const pathFor = ([x1, y1], [x2, y2], turnX) => {
   const mx = turnX ?? Math.round((x1 + x2) / 2);
   return `M${x1} ${y1} H${mx} V${y2} H${x2}`;
 };
+
+// A steam engine facing right, toward its track. Drawn back to front so nearer parts overlap.
+function drawEngine(g, x, y) {
+  // Smoke drifts up and back from the chimney, as if the engine is moving.
+  [[x + 9, y - 44, 6], [x + 16, y - 38, 5], [x + 22, y - 33, 4]].forEach(([cx, cy, r]) => svg('circle', { cx, cy, r, class: 'puff' }, g));
+  svg('rect', { x: x - 36, y: y - 22, width: 22, height: 30, class: 'loco' }, g); // cab
+  svg('rect', { x: x - 31, y: y - 17, width: 11, height: 9, class: 'window' }, g);
+  svg('rect', { x: x - 40, y: y - 27, width: 30, height: 5, rx: 1, class: 'iron' }, g); // cab roof
+  svg('path', { d: `M${x - 2} ${y - 11} a6 6 0 0 1 12 0 z`, class: 'loco' }, g); // steam dome
+  svg('path', { d: `M${x + 19} ${y - 12} V${y - 24} H${x + 17} V${y - 29} H${x + 29} V${y - 24} H${x + 27} V${y - 12} z`, class: 'iron' }, g); // chimney
+  svg('rect', { x: x - 15, y: y - 12, width: 38, height: 18, rx: 2, class: 'loco' }, g); // boiler
+  [-6, 6, 14].forEach((dx) => svg('line', { x1: x + dx, y1: y - 12, x2: x + dx, y2: y + 6, class: 'band' }, g));
+  svg('rect', { x: x + 22, y: y - 14, width: 9, height: 22, rx: 2, class: 'iron' }, g); // smokebox
+  svg('rect', { x: x - 39, y: y + 6, width: 72, height: 4, class: 'frame' }, g); // running board
+  svg('path', { d: `M${x + 30} ${y + 10} L${x + 39} ${y + 25} H${x + 27} z`, class: 'iron' }, g); // cowcatcher
+  // Two spoked driving wheels joined by a coupling rod, and a small leading wheel. All sit on y + 26.
+  [[x - 24, 8], [x - 5, 8], [x + 18, 5]].forEach(([cx, r]) => {
+    const cy = y + 26 - r;
+    svg('circle', { cx, cy, r, class: 'wheel' }, g);
+    [0, 45, 90, 135].forEach((deg) => {
+      const dx = Math.cos((deg * Math.PI) / 180) * (r - 1.5);
+      const dy = Math.sin((deg * Math.PI) / 180) * (r - 1.5);
+      svg('line', { x1: cx - dx, y1: cy - dy, x2: cx + dx, y2: cy + dy, class: 'spoke' }, g);
+    });
+  });
+  svg('line', { x1: x - 24, y1: y + 18, x2: x - 5, y2: y + 18, class: 'rod-bar' }, g); // coupling rod
+}
 
 function buildBoard() {
   const lv = level();
@@ -64,7 +91,7 @@ function buildBoard() {
   const nodes = Object.values(lv.nodes);
   const top = Math.min(...nodes.map((n) => n.y)) - 58;
   const bottom = Math.max(...nodes.map((n) => n.y)) + R + stateDy + 10;
-  const right = Math.max(...nodes.map((n) => n.x + (n.kind === 'piston' ? 90 : 50)));
+  const right = Math.max(...nodes.map((n) => n.x + (n.kind === 'piston' ? 112 : 50)));
   board.setAttribute('viewBox', `0 ${top} ${right} ${bottom - top}`);
 
   lv.wires.forEach((wire) => {
@@ -82,15 +109,8 @@ function buildBoard() {
       g.setAttribute('class', 'boiler');
       g.setAttribute('role', 'switch');
       g.setAttribute('aria-label', `Engine ${id}`);
-      svg('rect', { x: x - 40, y: y - 56, width: 80, height: 92, rx: 6, class: 'ring' }, g);
-      // A steam engine facing right, toward its track: smoke, cab, chimney, boiler, frame, wheels.
-      [[x + 18, y - 34, 5], [x + 25, y - 45, 7]].forEach(([cx, cy, r]) => svg('circle', { cx, cy, r, class: 'puff' }, g));
-      svg('rect', { x: x - 30, y: y - 22, width: 22, height: 30, rx: 2, class: 'face' }, g);
-      svg('rect', { x: x - 25, y: y - 17, width: 12, height: 10, class: 'window' }, g);
-      svg('rect', { x: x + 14, y: y - 26, width: 8, height: 16, class: 'face' }, g);
-      svg('rect', { x: x - 10, y: y - 12, width: 40, height: 20, rx: 9, class: 'face' }, g);
-      svg('rect', { x: x - 32, y: y + 8, width: 64, height: 5, class: 'frame' }, g);
-      [-19, 0, 19].forEach((dx) => svg('circle', { cx: x + dx, cy: y + 20, r: 7, class: 'face' }, g));
+      svg('rect', { x: x - 45, y: y - 56, width: 90, height: 92, rx: 6, class: 'ring' }, g);
+      drawEngine(g, x, y);
       svg('text', { x, y: y + R + labelDy, class: 'label' }, g).textContent = `Engine ${id}`;
       svg('text', { x, y: y + R + stateDy, class: 'state' }, g);
       pressable(g, () => toggleBoiler(id));
@@ -108,16 +128,16 @@ function buildBoard() {
     } else {
       g.setAttribute('class', 'piston');
       g.setAttribute('role', 'img');
-      // The station: a platform and the express (one carriage, one engine) that pulls away when the line clears.
-      svg('rect', { x: x - 44, y: y + 18, width: 112, height: 6, class: 'frame' }, g);
+      // The station: a platform and the express (a carriage behind an engine) that pulls away when the line clears.
+      svg('rect', { x: x - 50, y: y + 26, width: 124, height: 5, class: 'frame' }, g);
       const train = svg('g', { class: 'rod' }, g);
-      svg('rect', { x: x - 42, y: y - 14, width: 34, height: 24, rx: 3, class: 'face' }, train);
-      [-37, -24].forEach((dx) => svg('rect', { x: x + dx, y: y - 9, width: 9, height: 8, class: 'window' }, train));
-      svg('rect', { x: x + 20, y: y - 24, width: 7, height: 12, class: 'face' }, train);
-      svg('rect', { x: x - 4, y: y - 14, width: 34, height: 24, rx: 9, class: 'face' }, train);
-      [-33, -17, 4, 22].forEach((dx) => svg('circle', { cx: x + dx, cy: y + 13, r: 5, class: 'face' }, train));
-      svg('text', { x: x - 4, y: y + 24 + labelDy, class: 'label' }, g).textContent = 'Express';
-      svg('text', { x: x - 4, y: y + 24 + stateDy, class: 'state' }, g);
+      svg('rect', { x: x - 48, y: y - 16, width: 32, height: 26, rx: 2, class: 'loco' }, train);
+      svg('rect', { x: x - 50, y: y - 20, width: 36, height: 4, rx: 1, class: 'iron' }, train);
+      [-44, -30].forEach((dx) => svg('rect', { x: x + dx, y: y - 11, width: 10, height: 9, class: 'window' }, train));
+      [-42, -22].forEach((dx) => svg('circle', { cx: x + dx, cy: y + 21, r: 5, class: 'wheel' }, train));
+      drawEngine(train, x + 24, y);
+      svg('text', { x: x + 8, y: y + R + labelDy, class: 'label' }, g).textContent = 'Express';
+      svg('text', { x: x + 8, y: y + R + stateDy, class: 'state' }, g);
     }
   }
 }

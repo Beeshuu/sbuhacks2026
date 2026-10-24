@@ -113,14 +113,15 @@ const LEVELS = [
     lesson: { name: 'Split tracks', text: 'One engine can feed two boxes at once. Trace where every track goes before you choose, then check the ledger row by row.' },
     nodes: {
       ...trio,
-      s1: { kind: 'slot', inputs: 2, x: 220, y: 60 },
-      s2: { kind: 'slot', inputs: 2, x: 220, y: 215 },
-      s3: { kind: 'slot', inputs: 2, x: 340, y: 295 },
-      s4: { kind: 'slot', inputs: 2, x: 460, y: 140 },
-      P: { kind: 'piston', x: 600, y: 140 },
+      s1: { kind: 'slot', inputs: 2, x: 232, y: 60 },
+      s2: { kind: 'slot', inputs: 2, x: 232, y: 190 },
+      s3: { kind: 'slot', inputs: 2, x: 350, y: 295 },
+      s4: { kind: 'slot', inputs: 2, x: 470, y: 140 },
+      P: { kind: 'piston', x: 610, y: 140 },
     },
-    // Third item is the x where a track turns, set by hand so crossing tracks never share a segment.
-    wires: [['A', 's1'], ['B', 's1', 162], ['A', 's2', 142], ['B', 's2'], ['s2', 's3'], ['C', 's3'], ['s1', 's4'], ['s3', 's4'], ['s4', 'P']],
+    // Third item is the x where a track turns, set by hand so crossing tracks never share a segment
+    // and parallel runs stay at least one sleeper-width (22) apart.
+    wires: [['A', 's1'], ['B', 's1', 176], ['A', 's2', 146], ['B', 's2'], ['s2', 's3'], ['C', 's3'], ['s1', 's4'], ['s3', 's4'], ['s4', 'P']],
     target: (s) => s.A + s.B + s.C >= 2,
     solution: { s1: 'and', s2: 'or', s3: 'and', s4: 'or' },
   },
