@@ -25,7 +25,7 @@ Moving dashes on clear track, smoke on ready engines, and the express pulling aw
 ENERGY 2 / RHYTHM 1 / MOTION 2
 
 ## The run (chase view)
-The camera rides just behind the player's locomotive. Outside the track the world is a sunset over an industrial skyline: indigo to orange sky, a low sun, purple mountains, towers with lit windows and smoking factory chimneys, and evening grass. The track keeps the brass-era colours (ballast, sleepers, dark rails). The locomotive is gunmetal grey with brass bands, rivets, cogs and copper pipes, and the monster mirror is iron and brass with a sunset reflection. HUD panels stay cream cards with ink text so they read over the moving scene. With reduced motion on, screen shake, train bob and smoke animation are off.
+The camera rides just behind the player's steampunk paddle steamer. Beyond the river the world is a sunset over an industrial skyline: indigo to orange sky, a low sun, purple mountains, towers with lit windows and smoking factory chimneys, and evening grass. The river follows the time of day, with muddy banks, faint buoy lines between the lanes and drifting ripples. The steamboat is gunmetal grey with brass bands, rivets, cogs, copper pipes, red paddle wheels and two tall stacks, and the monster mirror is iron and brass with a sunset reflection. HUD panels stay cream cards with ink text so they read over the moving scene. With reduced motion on, screen shake, boat roll and smoke animation are off.
 
 ## Motion (every animation has a job; all off with reduced motion)
 - The menu and briefing are paper panels over a live demo run that drives itself through the day/night cycle (a still frame with reduced motion).

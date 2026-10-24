@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Steel junction</title>
-  <meta name="description" content="Drive the last steam train out while a monster chases you. Steer through bends, dodge obstacles, and fix engine faults by wiring AND, OR, NOT and XOR signal boxes.">
+  <meta name="description" content="Steer the last steamboat down the river while a monster chases you. Steer through bends, dodge obstacles, and fix engine faults by wiring AND, OR, NOT and XOR signal boxes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
@@ -12,15 +12,15 @@
 </head>
 <body>
   <!-- The game scene: behind every screen. In the menu it shows a demo run that drives itself. -->
-  <canvas id="view" class="scene" tabindex="-1" role="img" aria-label="Your steam locomotive seen from behind on the tracks ahead, with a mirror showing the monster chasing it"></canvas>
-  <noscript><p class="status">Steel junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
+  <canvas id="view" class="scene" tabindex="-1" role="img" aria-label="Your steamboat seen from behind on the river ahead, with a mirror showing the monster chasing it"></canvas>
+  <noscript><p class="status">Steel junction needs JavaScript to run the boats. Turn it on and reload the page.</p></noscript>
 
   <!-- Main menu -->
   <div id="menu" class="screen">
     <div class="wrap menu">
       <header class="menu-head">
         <h1>Steel junction</h1>
-        <p class="tagline">Drive the last train out of the yard. Keep the engine running. Don't let it catch you.</p>
+        <p class="tagline">Steer the last steamboat out of the city. Keep the engine running. Don't let it catch you.</p>
       </header>
 
       <main class="menu-main">
@@ -43,7 +43,7 @@
             <label class="mode">
               <input type="radio" name="difficulty" value="hard">
               <span class="mode-name">Hard</span>
-              <span class="mode-text">Tight bends, crowded tracks, a relentless monster, 26 seconds for each repair, the hardest questions.</span>
+              <span class="mode-text">Tight bends, crowded water, a relentless monster, 26 seconds for each repair, the hardest questions.</span>
               <span class="mode-best" id="best-hard"></span>
             </label>
           </fieldset>
@@ -112,22 +112,22 @@
         <section aria-labelledby="brief-rules">
           <h2 id="brief-rules">How to survive</h2>
           <ul class="rules">
-            <li><strong>Bends:</strong> a sign on the right shows which way the next bend turns. Bends push the train outward, so steer into one as it starts, or you'll run off the track and slow down.</li>
-            <li><strong>Obstacles:</strong> steer onto a clear track. There is always at least one.
+            <li><strong>Bends:</strong> a sign on the right shows which way the next bend turns. Bends push the boat toward the outer bank, so steer into one as it starts, or you'll run aground and slow down.</li>
+            <li><strong>Obstacles:</strong> steer into a clear lane. There is always at least one.
               <ul class="legend">
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="6" y="8" width="28" height="26" fill="#b08a4a" stroke="#2b2118" stroke-width="2.5"/><path d="M6 8 L34 34 M34 8 L6 34" stroke="#2b2118" stroke-width="2.5"/></svg><span><strong>Crate:</strong> slows you down.</span></li>
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#ffd36a" opacity="0.5"/><path d="M20 4 L23 16 L35 13 L25 21 L33 32 L20 25 L9 33 L15 21 L5 13 L17 16 Z" fill="#fff6c8" stroke="#ffb02e" stroke-width="2"/></svg><span><strong>Track spark:</strong> damages the engine. A question opens straight away.</span></li>
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="24" rx="15" ry="11" fill="#7a6750" stroke="#2b2118" stroke-width="2.5"/><ellipse cx="15" cy="19" rx="5" ry="2.5" fill="#9c8a70"/></svg><span><strong>Rock:</strong> slows you down and damages the engine. A question opens 3 seconds later.</span></li>
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M12 6 H28 L34 34 H6 Z" fill="#1b1411" stroke="#ff7a3d" stroke-width="3" stroke-linejoin="round"/></svg><span><strong>Track pit:</strong> the rails are cut away. Drive into one and the run is over.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="22" fill="#b08a4a" stroke="#2b2118" stroke-width="2.5"/><path d="M8 8 L32 30 M32 8 L8 30" stroke="#2b2118" stroke-width="2.5"/><rect x="2" y="26" width="36" height="12" fill="#3f7fa8"/><path d="M3 27 Q20 22 37 27" stroke="#f4fbff" stroke-width="2" fill="none"/></svg><span><strong>Floating crate:</strong> slows you down.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M2 36 Q10 14 22 10 Q34 8 31 20 Q27 16 25 22 Q32 32 38 36 Z" fill="#4f9ccd"/><path d="M10 18 Q22 6 31 20" stroke="#f4fbff" stroke-width="3.5" fill="none" stroke-linecap="round"/></svg><span><strong>Wave:</strong> damages the engine. A question opens straight away.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="22" rx="15" ry="11" fill="#6f6656" stroke="#2b2118" stroke-width="2.5"/><ellipse cx="15" cy="17" rx="5" ry="2.5" fill="#958b78"/><rect x="2" y="27" width="36" height="11" fill="#3f7fa8"/><path d="M3 28 Q20 23 37 28" stroke="#f4fbff" stroke-width="2" fill="none"/></svg><span><strong>River rock:</strong> slows you down and damages the engine. A question opens 3 seconds later.</span></li>
+                <li><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="18" ry="12" fill="#0f2a44"/><path d="M38 20 A18 12 0 0 0 6 14 M32 20 A12 8 0 0 0 11 16 M26 20 A6 4 0 0 0 16 18" stroke="#f4fbff" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span><strong>Whirlpool:</strong> it drags the boat under. Steer into one and the run is over.</span></li>
               </ul>
             </li>
-            <li><strong>The monster:</strong> it chases from behind; watch the mirror at the top. It gains whenever you slow down. If it reaches the train, the run is over.</li>
+            <li><strong>The monster:</strong> it chases from behind; watch the mirror at the top. It gains whenever you slow down. If it reaches the boat, the run is over.</li>
             <li><strong>Engine faults:</strong> one comes every 750 to 1,500 m, and an "Engine trouble ahead" notice warns you first. <span id="brief-fault"></span> The monster waits while you work, but if the timer runs out the engine crawls. A 3-second countdown follows every repair.</li>
           </ul>
         </section>
       </div>
       <div class="menu-actions">
-        <button type="button" id="go" class="run">Start driving</button>
+        <button type="button" id="go" class="run">Start sailing</button>
         <button type="button" id="brief-back" class="quiet">Back to the menu</button>
       </div>
     </div>
@@ -166,7 +166,7 @@
         <h2 id="paused-title">Paused</h2>
         <p>The monster is waiting too.</p>
         <div class="menu-actions">
-          <button type="button" id="resume" class="run">Keep driving</button>
+          <button type="button" id="resume" class="run">Keep sailing</button>
           <button type="button" id="quit" class="quiet">Leave to the main menu</button>
         </div>
       </div>

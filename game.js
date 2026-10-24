@@ -1,34 +1,34 @@
-// The endless run: a chase view from behind the locomotive, drawn segment by segment on a canvas
+// The endless run: a chase view from behind the steamboat, drawn segment by segment on a canvas
 // (the pseudo-3D method of classic arcade racers). Uses Workshop (app.js) for engine faults
 // and Chain (solana.js) for the devnet leaderboard.
 // Wrapped in a function so its names (update, say, ...) don't collide with app.js.
 (() => {
 
-const SEG = 200; // one track segment in world units; shown to the player as 1 metre
-const ROAD = 1600; // half-width of the track bed; about the screen width at the bottom edge
+const SEG = 200; // one river segment in world units; shown to the player as 1 metre
+const ROAD = 1600; // half-width of the river channel; about the screen width at the bottom edge
 const CAM_H = 1400;
 const DEPTH = 0.84; // camera depth, roughly a 100 degree field of view
 const DRAW = 170; // segments drawn ahead
-const RING = 600; // segments kept in memory; older ones are rewritten ahead of the train
-const AHEAD = CAM_H * DEPTH; // the train's front sits this far in front of the camera
+const RING = 600; // segments kept in memory; older ones are rewritten ahead of the boat
+const AHEAD = CAM_H * DEPTH; // the boat's bow sits this far in front of the camera
 const LANES = [-0.66, 0, 0.66];
 const GAP_MAX = 120; // metres: the furthest the monster falls behind
-const HIT_RANGE = 0.42; // obstacle half-width plus train half-width, in track half-widths
+const HIT_RANGE = 0.42; // obstacle half-width plus boat half-width, in river half-widths
 const FAULT_EVERY = [750, 1500]; // metres between engine faults, on every difficulty
 const FAULT_WARN = 200; // metres of warning before a fault
-const COUNTDOWN = 3; // seconds before the train moves again after a repair
+const COUNTDOWN = 3; // seconds before the boat moves again after a repair
 const ROCK_DELAY = 3; // seconds between hitting a rock and its engine fault
-const PIT_LENGTH = 6; // metres of missing track: long enough to read from a distance
-const PIT_FROM = 400; // no pits in the first 400 m, while new players learn to steer
+const POOL_LENGTH = 6; // metres of river a whirlpool covers: long enough to read from a distance
+const POOL_FROM = 400; // no whirlpools in the first 400 m, while new players learn to steer
 const MPH_PER_UNIT = 2.23694 / SEG; // world units per second to miles per hour (1 segment = 1 metre)
 const MPH_MAX = 120; // top of the speedometer dial; Hard tops out near 112 mph
 
 // Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
 // at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
 const MODES = {
-  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, mix: { crate: 0.53, rock: 0.25, spark: 0.2, pit: 0.02 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
-  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, mix: { crate: 0.46, rock: 0.27, spark: 0.23, pit: 0.04 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
-  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, mix: { crate: 0.44, rock: 0.27, spark: 0.23, pit: 0.06 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
+  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, mix: { crate: 0.53, rock: 0.25, wave: 0.2, whirlpool: 0.02 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
+  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, mix: { crate: 0.46, rock: 0.27, wave: 0.23, whirlpool: 0.04 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
+  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, mix: { crate: 0.44, rock: 0.27, wave: 0.23, whirlpool: 0.06 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
 };
 
 const C = { ink: '#2b2118', ink2: '#5a4630', brass: '#8a6420', face: '#f8f2e4', plate: '#e8dcc0', paper: '#f1e9d6', rule: '#cdb98d' };
@@ -82,7 +82,7 @@ function newRun(mode, category) {
     mode, cfg, category, bag: [],
     z: 0, x: 0, speed: cfg.maxSpeed * 0.5, gap: 60, time: 0,
     segs: new Array(RING), written: 0, plan: [], lastObstacle: 0,
-    faultAt: rand(...FAULT_EVERY), warned: false, pendingFault: 0, pit: null, countdown: 0, resume: '', turn: 0, repairs: 0, hits: 0,
+    faultAt: rand(...FAULT_EVERY), warned: false, pendingFault: 0, pool: null, countdown: 0, resume: '', turn: 0, repairs: 0, hits: 0,
     paused: null, over: false, shake: 0, flash: 0, needle: 0, demo: false, callout: null, smoke: [], hills: 0, hud: 0,
   };
   fillTrack();
@@ -109,20 +109,21 @@ function addSegment() {
   if (!run.plan.length) planSection();
   const abs = run.written++;
   const seg = { curve: run.plan.shift(), obstacles: [] };
-  // Leave one track clear in every row, and space rows out so there is always time to react.
-  if (run.pit) {
-    seg.obstacles.push({ x: run.pit.x, kind: 'pit', hit: false, last: run.pit.left === 1 });
-    if (--run.pit.left === 0) run.pit = null;
+  // Leave one lane clear in every row, and space rows out so there is always time to react.
+  if (run.pool) {
+    // A whirlpool covers several segments; it is drawn once, at its middle one.
+    seg.obstacles.push({ x: run.pool.x, kind: 'whirlpool', hit: false, mid: run.pool.i === Math.floor(POOL_LENGTH / 2) });
+    if (++run.pool.i === POOL_LENGTH) run.pool = null;
   } else if (abs > 70 && abs - run.lastObstacle > 14 && Math.random() < run.cfg.obstacles) {
     const lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, Math.random() < 0.3 ? 2 : 1);
-    let pitPlaced = false;
+    let poolPlaced = false;
     for (const l of lanes) {
       let kind = pickKind(run.cfg.mix);
-      if (kind === 'pit' && (pitPlaced || abs < PIT_FROM)) kind = 'crate'; // never two pits in a row, none early on
-      if (kind === 'pit') {
-        pitPlaced = true;
-        run.pit = { x: LANES[l], left: PIT_LENGTH - 1 };
-        seg.obstacles.push({ x: LANES[l], kind, hit: false, first: true });
+      if (kind === 'whirlpool' && (poolPlaced || abs < POOL_FROM)) kind = 'crate'; // never two in a row, none early on
+      if (kind === 'whirlpool') {
+        poolPlaced = true;
+        run.pool = { x: LANES[l], i: 1 };
+        seg.obstacles.push({ x: LANES[l], kind, hit: false });
       } else {
         seg.obstacles.push({ x: LANES[l], kind, hit: false });
       }
@@ -163,7 +164,7 @@ function announce(text) {
   el('drive-live').textContent = text;
 }
 
-// In the menu's demo run the train picks the clear track nearest to it, looking 50 m ahead.
+// In the menu's demo run the boat picks the clear lane nearest to it, looking 50 m ahead.
 function demoSteer() {
   const here = Math.floor((run.z + AHEAD) / SEG);
   const blocked = new Set();
@@ -185,7 +186,7 @@ function update(dt) {
   const turn = dt * 2 * Math.max(pct, 0.35);
   if (keys.left) run.x -= turn;
   if (keys.right) run.x += turn;
-  run.x -= turn * pct * seg.curve * cfg.pull; // bends push the train to the outside
+  run.x -= turn * pct * seg.curve * cfg.pull; // bends push the boat toward the outer bank
   run.x = clamp(run.x, -1.6, 1.6);
   const off = Math.abs(run.x) > 1;
 
@@ -201,23 +202,23 @@ function update(dt) {
     for (const ob of segAt(a).obstacles) {
       if (!ob.hit && Math.abs(run.x - ob.x) < HIT_RANGE) {
         ob.hit = true;
-        if (run.demo) continue; // the menu's demo train can't be hurt
+        if (run.demo) continue; // the menu's demo boat can't be hurt
         run.hits++;
         run.shake = 1;
         run.flash = 1;
-        if (ob.kind === 'pit') return finish('pit');
+        if (ob.kind === 'whirlpool') return finish('whirlpool');
         if (ob.kind === 'crate') {
           run.speed *= 0.35;
-          shout('Smashed a crate! Speed lost.');
-          announce('You hit a crate. The train slowed down.');
+          shout('Hit a floating crate! Speed lost.');
+          announce('You hit a floating crate. The boat slowed down.');
         } else if (ob.kind === 'rock') {
           run.speed *= 0.35;
           if (!run.pendingFault) run.pendingFault = ROCK_DELAY;
           shout('Hit a rock! Engine damaged.', 2.4);
-          announce(`You hit a rock. The train slowed down and the engine will fault in ${ROCK_DELAY} seconds.`);
+          announce(`You hit a rock. The boat slowed down and the engine will fault in ${ROCK_DELAY} seconds.`);
         } else {
-          shout('Track spark! Engine damaged.');
-          announce('A track spark damaged the engine.');
+          shout('Wave hit! Engine damaged.');
+          announce('A wave crashed over the boat and damaged the engine.');
           startRepair();
           return;
         }
@@ -231,7 +232,7 @@ function update(dt) {
   run.gap = Math.min(GAP_MAX, run.gap + ((run.speed - chase) / SEG) * dt);
   if (run.gap <= 0) return finish();
 
-  if (off) say('Off the track! Steer back.');
+  if (off) say('Too close to the bank! Steer back.');
   else if (Math.abs(seg.curve) > 0.5 && Math.abs(run.x) > 0.75 && run.x * seg.curve < 0) say(`Steer ${seg.curve > 0 ? 'right' : 'left'}!`);
   run.turn = 0;
   for (let k = 0; k < 70 && !run.turn; k++) {
@@ -251,7 +252,7 @@ function update(dt) {
   if (metres >= run.faultAt) startRepair();
 }
 
-// After a repair the train waits for a short countdown; the monster waits too.
+// After a repair the boat waits for a short countdown; the monster waits too.
 function tickCountdown(dt) {
   const shown = Math.ceil(run.countdown);
   run.countdown -= dt;
@@ -286,7 +287,7 @@ async function startRepair() {
   } else {
     run.speed = cfg.maxSpeed * 0.2;
     run.resume = 'The engine is crawling. Get the speed back up!';
-    announce(`Out of time. The train will crawl. Moving again in ${COUNTDOWN}.`);
+    announce(`Out of time. The boat will crawl. Moving again in ${COUNTDOWN}.`);
   }
   run.countdown = COUNTDOWN;
   run.paused = 'countdown';
@@ -301,12 +302,12 @@ function nextQuestion() {
 
 // ---- Day and night -------------------------------------------------------------
 // A full cycle (day, sunset, night, dawn) every CYCLE metres. Each key is a moment in the cycle (0 to 1)
-// and the colours of everything outside the track; in between, every colour blends smoothly.
+// and the colours of the sky, the land and the river; in between, every colour blends smoothly.
 const CYCLE = 5000;
-const DAY = { top: '#3f7fc4', mid: '#6fa6dc', low: '#a9d0ee', hz: '#d6e9f2', far: '#9db2c7', city: '#6b6f7a', ridge: '#5f8c45', ground: '#79a650', cloud: '#ffffff', cloudA: 0.92, dark: 0, lights: 0.1 };
-const SUNSET = { top: '#2b2a5c', mid: '#8a3f6b', low: '#e8734a', hz: '#f6b26b', far: '#7a5577', city: '#3b2b3e', ridge: '#4a3b3a', ground: '#5f6e33', cloud: '#f8a882', cloudA: 0.9, dark: 0.3, lights: 0.8 };
-const NIGHT = { top: '#0b1030', mid: '#141a45', low: '#22285a', hz: '#303868', far: '#2a2f4a', city: '#161828', ridge: '#1e2420', ground: '#2b3a22', cloud: '#4a5274', cloudA: 0.6, dark: 1, lights: 1 };
-const DAWN = { top: '#3a4a8a', mid: '#b07aa8', low: '#f0a888', hz: '#f8d4a8', far: '#8a8aa8', city: '#4a4458', ridge: '#4c5a40', ground: '#607a40', cloud: '#ffcfbf', cloudA: 0.9, dark: 0.35, lights: 0.4 };
+const DAY = { water: '#3f7fa8', bank: '#8a7a52', top: '#3f7fc4', mid: '#6fa6dc', low: '#a9d0ee', hz: '#d6e9f2', far: '#9db2c7', city: '#6b6f7a', ridge: '#5f8c45', ground: '#79a650', cloud: '#ffffff', cloudA: 0.92, dark: 0, lights: 0.1 };
+const SUNSET = { water: '#5a4d78', bank: '#5e4a3a', top: '#2b2a5c', mid: '#8a3f6b', low: '#e8734a', hz: '#f6b26b', far: '#7a5577', city: '#3b2b3e', ridge: '#4a3b3a', ground: '#5f6e33', cloud: '#f8a882', cloudA: 0.9, dark: 0.3, lights: 0.8 };
+const NIGHT = { water: '#16264a', bank: '#262620', top: '#0b1030', mid: '#141a45', low: '#22285a', hz: '#303868', far: '#2a2f4a', city: '#161828', ridge: '#1e2420', ground: '#2b3a22', cloud: '#4a5274', cloudA: 0.6, dark: 1, lights: 1 };
+const DAWN = { water: '#6a74a8', bank: '#7a6a52', top: '#3a4a8a', mid: '#b07aa8', low: '#f0a888', hz: '#f8d4a8', far: '#8a8aa8', city: '#4a4458', ridge: '#4c5a40', ground: '#607a40', cloud: '#ffcfbf', cloudA: 0.9, dark: 0.35, lights: 0.4 };
 const SKY_KEYS = [[0, DAY], [0.35, DAY], [0.5, SUNSET], [0.62, NIGHT], [0.85, NIGHT], [0.95, DAWN], [1, DAY]];
 
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
@@ -345,13 +346,13 @@ function quad(x1, y1, x2, y2, x3, y3, x4, y4, color) {
   ctx.fill();
 }
 
-// A strip of track between two projected edges, at `off` across the bed and `half` wide (both in half-widths).
+// A strip of river between two projected edges, at `off` across the channel and `half` wide (both in half-widths).
 function strip(p1, p2, off, half, color) {
   quad(p1.x + (off - half) * p1.w, p1.y, p1.x + (off + half) * p1.w, p1.y,
     p2.x + (off + half) * p2.w, p2.y, p2.x + (off - half) * p2.w, p2.y, color);
 }
 
-// Tall (portrait) screens raise the horizon so more of the track shows below it.
+// Tall (portrait) screens raise the horizon so more of the river shows below it.
 const horizonOf = (w, h) => h * (h > w ? 0.38 : 0.5);
 
 const CLOUDS = [[0.1, 0.22, 1], [0.38, 0.1, 0.7], [0.62, 0.3, 1.2], [0.9, 0.16, 0.8], [1.15, 0.26, 1]];
@@ -374,7 +375,7 @@ const SKYLINE = (() => {
   return out;
 })();
 
-// Everything outside the track, coloured by the time of day: sky, stars, moon, sun, clouds, mountains,
+// Everything beyond the river, coloured by the time of day: sky, stars, moon, sun, clouds, mountains,
 // the industrial skyline, dark hills and the grass.
 function drawSky(w, h) {
   const hz = horizonOf(w, h);
@@ -506,52 +507,86 @@ function drawSkyline(w, h, hz) {
   }
 }
 
-// A gap where the track is cut away: a dark hole across one lane with orange hazard edges, so it
-// shows up even at night.
-let pitMarks = []; // pits drawn this frame, so their edges can be lit again over the night shade
+// A whirlpool: a dark funnel in one lane with white foam spiralling round it. Its foam is drawn again
+// over the night shade, so it stays visible after dark.
+let poolMarks = []; // whirlpools drawn this frame: [x, y, scale, clipY]
 
-function drawPit(ob, p1, p2, edgesOnly = false) {
-  if (!edgesOnly) {
-    strip(p1, p2, ob.x, 0.25, '#1b1411');
-    pitMarks.push([ob, p1, p2]);
+function drawWhirlpool(x, y, scale, clipY, foamOnly = false) {
+  const rx = scale * 0.32;
+  const ry = rx * 0.34;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, canvas.width, clipY);
+  ctx.clip();
+  if (!foamOnly) {
+    const funnel = ctx.createRadialGradient(x, y, 0, x, y, rx);
+    funnel.addColorStop(0, '#05101c');
+    funnel.addColorStop(0.55, '#0f2a44');
+    funnel.addColorStop(1, css(sky.water, 0));
+    ctx.fillStyle = funnel;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    poolMarks.push([x, y, scale, clipY]);
   }
-  strip(p1, p2, ob.x - 0.25, 0.032, '#ff7a3d');
-  strip(p1, p2, ob.x + 0.25, 0.032, '#ff7a3d');
-  const edge = (p) => quad(p.x + (ob.x - 0.27) * p.w, p.y - p.w * 0.012, p.x + (ob.x + 0.27) * p.w, p.y - p.w * 0.012,
-    p.x + (ob.x + 0.27) * p.w, p.y + p.w * 0.012, p.x + (ob.x - 0.27) * p.w, p.y + p.w * 0.012, '#ff7a3d');
-  if (ob.first) edge(p1);
-  if (ob.last) edge(p2);
+  const spin = calm ? 0 : run.time * 2.4;
+  ctx.strokeStyle = 'rgba(240, 248, 255, 0.85)';
+  ctx.lineWidth = Math.max(1, scale * 0.012);
+  for (let i = 0; i < 4; i++) {
+    const k = 1 - i * 0.2;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * k, ry * k, 0, spin + i * 1.6, spin + i * 1.6 + Math.PI * 1.25);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
-// A track spark: a crackling burst on the rails that flickers.
-function drawSpark(sx, y, wide) {
-  const flick = calm ? 1 : 0.85 + 0.3 * Math.sin(run.time * 40 + sx);
-  const cy = y - wide * 0.25;
-  const glow = ctx.createRadialGradient(sx, cy, 0, sx, cy, wide * 0.7 * flick);
-  glow.addColorStop(0, 'rgba(255, 236, 140, 0.95)');
-  glow.addColorStop(0.4, 'rgba(255, 190, 70, 0.55)');
-  glow.addColorStop(1, 'rgba(255, 160, 40, 0)');
-  ctx.fillStyle = glow;
+// A wave: a curling crest with a white foam cap that bobs on the water.
+function drawWave(sx, y, wide) {
+  const bob = calm ? 0 : Math.sin(run.time * 4 + sx * 0.01) * wide * 0.04;
+  const top = y - wide * 0.5 + bob;
+  const body = ctx.createLinearGradient(0, top, 0, y);
+  body.addColorStop(0, '#5aa7d8');
+  body.addColorStop(1, css(mixRgb(sky.water, [0, 0, 0], 0.15)));
+  ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.arc(sx, cy, wide * 0.7 * flick, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#fff6c8';
-  ctx.strokeStyle = '#ffb02e';
-  ctx.lineWidth = Math.max(1, wide * 0.03);
-  ctx.beginPath();
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2 + (calm ? 0 : run.time * 3);
-    const r = (i % 2 ? 0.12 : 0.42 * (0.8 + 0.4 * ((i * 7) % 5) / 5)) * wide * flick;
-    ctx.lineTo(sx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.8);
-  }
+  ctx.moveTo(sx - wide * 0.6, y);
+  ctx.quadraticCurveTo(sx - wide * 0.35, top + wide * 0.05, sx + wide * 0.05, top);
+  ctx.quadraticCurveTo(sx + wide * 0.4, top - wide * 0.02, sx + wide * 0.32, top + wide * 0.2);
+  ctx.quadraticCurveTo(sx + wide * 0.22, top + wide * 0.12, sx + wide * 0.18, top + wide * 0.26);
+  ctx.quadraticCurveTo(sx + wide * 0.45, y - wide * 0.08, sx + wide * 0.6, y);
   ctx.closePath();
   ctx.fill();
+  // Foam along the crest and spray above it.
+  ctx.strokeStyle = '#f4fbff';
+  ctx.lineWidth = Math.max(2, wide * 0.08);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(sx - wide * 0.3, top + wide * 0.1);
+  ctx.quadraticCurveTo(sx + wide * 0.05, top - wide * 0.03, sx + wide * 0.32, top + wide * 0.2);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(244, 251, 255, 0.85)';
+  for (let i = 0; i < 5; i++) {
+    const t = calm ? 0.5 : (run.time * 1.5 + i / 5) % 1;
+    ctx.beginPath();
+    ctx.arc(sx - wide * 0.2 + i * wide * 0.12, top - t * wide * 0.25, wide * 0.035 * (1 - t), 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// A water line across an object, so floating things look half sunk.
+function waterLine(sx, y, wide) {
+  ctx.fillStyle = css(sky.water);
+  ctx.fillRect(sx - wide * 0.6, y - wide * 0.12, wide * 1.2, wide * 0.16);
+  ctx.strokeStyle = 'rgba(240, 248, 255, 0.75)';
+  ctx.lineWidth = Math.max(1, wide * 0.03);
+  ctx.beginPath();
+  ctx.ellipse(sx, y - wide * 0.12, wide * 0.6, wide * 0.06, 0, Math.PI, 0, true);
   ctx.stroke();
 }
 
 function drawObstacle(ob, p, clipY) {
   const wide = p.w * 0.48;
-  const tall = ob.kind === 'rock' ? wide * 0.75 : wide * 0.85;
   const sx = p.x + ob.x * p.w;
   ctx.save();
   ctx.beginPath();
@@ -559,25 +594,32 @@ function drawObstacle(ob, p, clipY) {
   ctx.clip();
   ctx.lineWidth = Math.max(1, wide * 0.04);
   ctx.strokeStyle = C.ink;
-  if (ob.kind === 'spark') {
-    drawSpark(sx, p.y, wide);
+  if (ob.kind === 'wave') {
+    drawWave(sx, p.y, wide);
   } else if (ob.kind === 'rock') {
-    ctx.fillStyle = '#7a6750';
+    const tall = wide * 0.7;
+    ctx.fillStyle = '#6f6656';
     ctx.beginPath();
     ctx.ellipse(sx, p.y - tall / 2, wide / 2, tall / 2, 0, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#9c8a70';
+    ctx.fillStyle = '#958b78';
     ctx.beginPath();
     ctx.ellipse(sx - wide * 0.14, p.y - tall * 0.66, wide * 0.16, tall * 0.12, -0.4, 0, Math.PI * 2);
     ctx.fill();
+    waterLine(sx, p.y + wide * 0.04, wide); // water and foam round the base
   } else {
+    // A floating crate bobs, with its lower part under the water.
+    const bob = calm ? 0 : Math.sin(run.time * 3 + sx * 0.02) * wide * 0.04;
+    const tall = wide * 0.85;
+    const y = p.y + bob;
     ctx.fillStyle = '#b08a4a';
-    ctx.fillRect(sx - wide / 2, p.y - tall, wide, tall);
-    ctx.strokeRect(sx - wide / 2, p.y - tall, wide, tall);
+    ctx.fillRect(sx - wide / 2, y - tall, wide, tall);
+    ctx.strokeRect(sx - wide / 2, y - tall, wide, tall);
     ctx.beginPath();
-    ctx.moveTo(sx - wide / 2, p.y - tall); ctx.lineTo(sx + wide / 2, p.y);
-    ctx.moveTo(sx + wide / 2, p.y - tall); ctx.lineTo(sx - wide / 2, p.y);
+    ctx.moveTo(sx - wide / 2, y - tall); ctx.lineTo(sx + wide / 2, y);
+    ctx.moveTo(sx + wide / 2, y - tall); ctx.lineTo(sx - wide / 2, y);
     ctx.stroke();
+    waterLine(sx, p.y + wide * 0.02, wide);
   }
   ctx.restore();
 }
@@ -651,14 +693,17 @@ function drawTrack(w, h) {
     const clip = maxY;
     ctx.fillStyle = css(Math.floor(abs / 4) % 2 ? sky.ground : mixRgb(sky.ground, [0, 0, 0], 0.08));
     ctx.fillRect(0, p2.y, w, p1.y - p2.y + 1);
-    strip(p1, p2, 0, 1, '#bfa982');
-    // A sleeper under the front of each nearby segment; far away they would only flicker.
-    if (n < 70) {
-      const mid = { x: p1.x + (p2.x - p1.x) * 0.3, y: p1.y + (p2.y - p1.y) * 0.3, w: p1.w + (p2.w - p1.w) * 0.3 };
-      strip(p1, mid, 0, 0.9, '#9a8058');
+    // Muddy banks, then the water in slow bands of colour so movement reads.
+    strip(p1, p2, 0, 1.12, css(sky.bank));
+    strip(p1, p2, 0, 1, css(Math.floor(abs / 3) % 2 ? sky.water : mixRgb(sky.water, [0, 0, 0], 0.035)));
+    if (n < 80) {
+      // Faint buoy lines between the lanes, and drifting ripples nearby; far away they would only flicker.
+      if (abs % 6 < 2) for (const side of [-0.33, 0.33]) strip(p1, p2, side, 0.006, 'rgba(255, 255, 255, 0.14)');
+      if ((abs * 7) % 5 === 0) {
+        const mid = { x: p1.x + (p2.x - p1.x) * 0.2, y: p1.y + (p2.y - p1.y) * 0.2, w: p1.w + (p2.w - p1.w) * 0.2 };
+        strip(p1, mid, ((abs * 53) % 100) / 100 * 1.6 - 0.8, 0.03, 'rgba(255, 255, 255, 0.12)');
+      }
     }
-    for (const lane of LANES) for (const side of [-0.11, 0.11]) strip(p1, p2, lane + side, 0.018, '#4a3b2a');
-    for (const ob of seg.obstacles) if (ob.kind === 'pit') drawPit(ob, p1, p2);
     maxY = p2.y;
     if (seg.obstacles.length || seg.scenery.length || abs % 25 === 0) shown.push({ seg, abs, p1, clip });
   }
@@ -666,7 +711,8 @@ function drawTrack(w, h) {
     const { seg, abs, p1, clip } = shown[i];
     if (abs % 25 === 0) for (const side of [-1.35, 1.35]) drawPole(p1.x + side * p1.w, p1.y, p1.w, clip);
     for (const item of seg.scenery) drawTree(item, p1, clip);
-    for (const ob of seg.obstacles) if (!ob.hit && ob.kind !== 'pit') drawObstacle(ob, p1, clip);
+    for (const ob of seg.obstacles) if (ob.kind === 'whirlpool' && ob.mid) drawWhirlpool(p1.x + ob.x * p1.w, p1.y, p1.w, clip);
+    for (const ob of seg.obstacles) if (!ob.hit && ob.kind !== 'whirlpool') drawObstacle(ob, p1, clip);
   }
 }
 
@@ -734,9 +780,9 @@ function drawMirror(w, h) {
   glass.addColorStop(1, css(sky.low));
   ctx.fillStyle = glass;
   ctx.fillRect(mx, my, mw, mh * 0.45);
-  ctx.fillStyle = '#3a2f2c';
+  ctx.fillStyle = css(mixRgb(sky.water, [0, 0, 0], 0.25));
   ctx.fillRect(mx, my + mh * 0.45, mw, mh * 0.55);
-  ctx.strokeStyle = '#c9a04a';
+  ctx.strokeStyle = 'rgba(240, 248, 255, 0.4)'; // the river's wake behind the boat
   ctx.lineWidth = 2;
   for (const off of [-0.3, -0.12, 0.12, 0.3]) {
     ctx.beginPath();
@@ -805,7 +851,7 @@ function drawGear(x, y, r, teeth) {
   ctx.fillStyle = '#c9a04a';
   ctx.beginPath();
   for (let i = 0; i < teeth * 2; i++) {
-    const a = (i / (teeth * 2)) * Math.PI * 2 + run.z * 0.0004; // the cogs turn as the train moves
+    const a = (i / (teeth * 2)) * Math.PI * 2 + run.z * 0.0004; // the cogs turn as the boat moves
     const rr = i % 2 ? r * 0.78 : r;
     ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
   }
@@ -817,59 +863,114 @@ function drawGear(x, y, r, teeth) {
   ctx.fill();
 }
 
-// Where the locomotive sits on screen: its wheels rest on the track at the train's own distance ahead.
-function trainFrame(w, h) {
+// Where the steamboat sits on screen: its waterline at the boat's own distance ahead.
+function boatFrame(w, h) {
   const sc = DEPTH / AHEAD;
   const roadHalf = sc * ROAD * w / 2;
-  const u = (roadHalf * 0.27) / 100; // drawing unit: the train is about 100u wide, a little over a lane
+  const u = (roadHalf * 0.23) / 100; // drawing unit: the hull is about 100u wide, paddle boxes add 40u
   return { cx: w / 2, by: horizonOf(w, h) + sc * CAM_H * h / 2 - u * 6, u };
 }
 
-// The player's steampunk locomotive, seen from just behind and above. The grey body runs from the cab
-// all the way to the bottom of the screen, as if the camera rides on the train. It leans into steering.
-function drawTrain(w, h) {
-  const { cx, by, u } = trainFrame(w, h);
+const STACKS = [-18, 18]; // smokestack x positions, in boat units
+
+// The player's steampunk paddle steamer, seen from just behind and above. The steel hull runs to the
+// bottom of the screen; red paddle wheels turn in brass housings; two tall stacks puff smoke.
+// It rolls gently on the water and leans into steering.
+function drawBoat(w, h) {
+  const { cx, by, u } = boatFrame(w, h);
   const pct = run.speed / run.cfg.maxSpeed;
-  const bob = calm ? 0 : Math.sin(run.z * 0.004) * u * 0.6 * pct;
-  const low = h - by + 40 * u; // past the bottom edge even while leaning
+  const low = h - by + 40 * u;
+  const roll = calm ? 0 : Math.sin(run.time * 1.6) * 0.012;
+  const bob = calm ? 0 : Math.sin(run.time * 2.3) * u * 1.2;
+  const spin = run.z * 0.0025; // paddle wheels turn with distance travelled
+
+  // Wake: foam spreading from the hull toward the viewer, drawn on the water before the boat.
+  ctx.save();
+  ctx.translate(cx, by);
+  ctx.fillStyle = `rgba(240, 248, 255, ${0.18 + pct * 0.15})`;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * 48 * u, -4 * u);
+    ctx.lineTo(side * 60 * u, -4 * u);
+    ctx.lineTo(side * 130 * u, low);
+    ctx.lineTo(side * 75 * u, low);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
   ctx.save();
   ctx.translate(cx, by + bob);
-  ctx.rotate((keys.right - keys.left) * 0.035);
+  ctx.rotate((keys.right - keys.left) * 0.035 + roll);
 
-  // Chimney and steam dome stand on the boiler ahead of the cab, so they show above the roof.
-  ctx.fillStyle = '#1c1c1f';
-  ctx.beginPath();
-  ctx.moveTo(-6 * u, -104 * u); ctx.lineTo(-6 * u, -128 * u); ctx.lineTo(-11 * u, -141 * u);
-  ctx.lineTo(11 * u, -141 * u); ctx.lineTo(6 * u, -128 * u); ctx.lineTo(6 * u, -104 * u);
-  ctx.fill();
-  ctx.fillStyle = '#c9a04a';
-  ctx.fillRect(-7 * u, -131 * u, 14 * u, 3 * u);
-  ctx.beginPath();
-  ctx.arc(18 * u, -110 * u, 7 * u, Math.PI, 0);
-  ctx.fill();
+  // Smokestacks behind the cabin, black with brass bands and flared crowns.
+  for (const sx of STACKS) {
+    ctx.fillStyle = '#1c1c1f';
+    ctx.beginPath();
+    ctx.moveTo((sx - 5) * u, -86 * u); ctx.lineTo((sx - 5) * u, -140 * u); ctx.lineTo((sx - 9) * u, -152 * u);
+    ctx.lineTo((sx + 9) * u, -152 * u); ctx.lineTo((sx + 5) * u, -140 * u); ctx.lineTo((sx + 5) * u, -86 * u);
+    ctx.fill();
+    ctx.fillStyle = '#c9a04a';
+    ctx.fillRect((sx - 6) * u, -128 * u, 12 * u, 3 * u);
+    ctx.fillRect((sx - 9.5) * u, -154 * u, 19 * u, 3 * u);
+  }
 
-  // Body: widens slightly toward the viewer, gunmetal grey with a lighter middle.
-  const body = ctx.createLinearGradient(-47 * u, 0, 47 * u, 0);
-  body.addColorStop(0, '#3e4349');
-  body.addColorStop(0.5, '#858c94');
-  body.addColorStop(1, '#3e4349');
-  ctx.fillStyle = body;
+  // Paddle boxes: brass-rimmed half housings with the red wheel's spokes turning inside.
+  for (const side of [-1, 1]) {
+    const px = side * 54 * u;
+    const py = -8 * u;
+    const r = 20 * u;
+    ctx.fillStyle = '#7a2418';
+    ctx.beginPath();
+    ctx.arc(px, py, r, Math.PI, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = '#d9a45a';
+    ctx.lineWidth = 1.6 * u;
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2 + side * spin;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + Math.cos(a) * r, py + Math.sin(a) * r);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = '#c9a04a';
+    ctx.lineWidth = 2.4 * u;
+    ctx.beginPath();
+    ctx.arc(px, py, r, Math.PI, 0);
+    ctx.stroke();
+    // Splash where the paddles meet the water.
+    ctx.fillStyle = 'rgba(240, 248, 255, 0.8)';
+    for (let k = 0; k < 4; k++) {
+      const t = calm ? 0.5 : (run.time * 2 + k / 4) % 1;
+      ctx.beginPath();
+      ctx.arc(px + (k - 1.5) * 9 * u, py + 6 * u - t * 8 * u, (3 - t * 2) * u, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Hull: gunmetal grey, widening slightly toward the viewer, past the bottom of the screen.
+  const steel = ctx.createLinearGradient(-50 * u, 0, 50 * u, 0);
+  steel.addColorStop(0, '#3e4349');
+  steel.addColorStop(0.5, '#858c94');
+  steel.addColorStop(1, '#3e4349');
+  ctx.fillStyle = steel;
   ctx.beginPath();
-  ctx.moveTo(-44 * u, -104 * u); ctx.lineTo(44 * u, -104 * u);
-  ctx.lineTo(48 * u, low); ctx.lineTo(-48 * u, low);
+  ctx.moveTo(-46 * u, -22 * u); ctx.lineTo(46 * u, -22 * u);
+  ctx.lineTo(52 * u, low); ctx.lineTo(-52 * u, low);
   ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = '#c9a04a';
   ctx.lineWidth = 2.2 * u;
   ctx.stroke();
-
-  // Brass bands with rivets, repeating down the length of the body.
-  const bands = [-86, -42];
-  for (let y = 0; y * u < low; y += 42) bands.push(y);
-  ctx.lineWidth = 2 * u;
-  for (const y of bands) {
-    const half = 44 + (4 * (y + 104)) / ((low / u) + 104);
+  // Brass bands with rivets down the hull.
+  for (let y = -22; y * u < low; y += 40) {
+    const half = 46 + (6 * (y + 22)) / (low / u + 22);
     ctx.strokeStyle = '#c9a04a';
+    ctx.lineWidth = 2 * u;
     ctx.beginPath();
     ctx.moveTo(-half * u, y * u); ctx.lineTo(half * u, y * u);
     ctx.stroke();
@@ -880,91 +981,117 @@ function drawTrain(w, h) {
       ctx.fill();
     }
   }
-  // Panel seams running toward the viewer.
-  ctx.strokeStyle = 'rgba(28, 28, 31, 0.55)';
-  ctx.lineWidth = 1.4 * u;
-  for (const x of [-26, 26]) {
+  // Foam along both sides of the hull where it cuts the water.
+  ctx.strokeStyle = 'rgba(240, 248, 255, 0.85)';
+  ctx.lineWidth = 2.5 * u;
+  for (const side of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(x * u, -42 * u); ctx.lineTo(x * 1.06 * u, low);
+    for (let y = -6; y * u < low; y += 6) {
+      const half = 46 + (6 * (y + 22)) / (low / u + 22) + 2;
+      const wobble = calm ? 0 : Math.sin(run.time * 8 + y * 0.5) * 1.2;
+      ctx.lineTo(side * (half + wobble) * u, y * u);
+    }
     ctx.stroke();
   }
-
-  // Lit rear window with a centre bar.
-  const glow = ctx.createRadialGradient(0, -78 * u, 2 * u, 0, -78 * u, 24 * u);
-  glow.addColorStop(0, '#ffe4a3');
-  glow.addColorStop(1, '#d9902f');
-  ctx.fillStyle = glow;
-  roundRect(-17 * u, -97 * u, 34 * u, 24 * u, [9 * u, 9 * u, 2 * u, 2 * u]);
-  ctx.fill();
-  ctx.strokeStyle = '#c9a04a';
-  ctx.lineWidth = 2.5 * u;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(0, -97 * u); ctx.lineTo(0, -73 * u);
-  ctx.stroke();
-
-  // Cogs and a pressure gauge; the gauge reads the train's speed.
-  drawGear(-27 * u, -60 * u, 10 * u, 8);
-  drawGear(-12 * u, -53 * u, 6 * u, 6);
-  drawGear(30 * u, -14 * u, 8 * u, 7);
+  // Cog, gauge and a copper pipe on the stern deck; the gauge reads the boat's speed.
+  drawGear(-28 * u, 4 * u, 8 * u, 7);
   ctx.fillStyle = '#f8f2e4';
   ctx.strokeStyle = '#c9a04a';
   ctx.lineWidth = 2 * u;
   ctx.beginPath();
-  ctx.arc(26 * u, -60 * u, 8 * u, 0, Math.PI * 2);
+  ctx.arc(28 * u, 4 * u, 8 * u, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.strokeStyle = '#a3361f';
   ctx.lineWidth = 1.5 * u;
   ctx.beginPath();
-  ctx.moveTo(26 * u, -60 * u);
+  ctx.moveTo(28 * u, 4 * u);
   const needle = -Math.PI * 0.85 + pct * Math.PI * 0.7;
-  ctx.lineTo(26 * u + Math.cos(needle) * 6 * u, -60 * u + Math.sin(needle) * 6 * u);
+  ctx.lineTo(28 * u + Math.cos(needle) * 6 * u, 4 * u + Math.sin(needle) * 6 * u);
   ctx.stroke();
-
-  // Copper steam pipes with joints.
   ctx.strokeStyle = '#b8642f';
   ctx.lineWidth = 3.5 * u;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(-40 * u, -36 * u); ctx.lineTo(40 * u, -36 * u);
-  ctx.moveTo(-36 * u, -36 * u); ctx.lineTo(-38 * u, low);
+  ctx.moveTo(-36 * u, -18 * u); ctx.lineTo(-38 * u, low);
   ctx.stroke();
-  ctx.fillStyle = '#d98a4f';
-  for (const [x, y] of [[-30, -36], [0, -36], [30, -36], [-36.5, 10], [-37, 50]]) {
+
+  // Cabin with three lit windows.
+  const cabin = ctx.createLinearGradient(-38 * u, 0, 38 * u, 0);
+  cabin.addColorStop(0, '#4a4f55');
+  cabin.addColorStop(0.5, '#8e959c');
+  cabin.addColorStop(1, '#4a4f55');
+  ctx.fillStyle = cabin;
+  roundRect(-38 * u, -84 * u, 76 * u, 62 * u, 3 * u);
+  ctx.fill();
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 2 * u;
+  ctx.stroke();
+  for (const wx of [-27, -7, 13]) {
+    const glow = ctx.createRadialGradient((wx + 7) * u, -60 * u, u, (wx + 7) * u, -60 * u, 14 * u);
+    glow.addColorStop(0, '#ffe4a3');
+    glow.addColorStop(1, '#d9902f');
+    ctx.fillStyle = glow;
+    roundRect(wx * u, -72 * u, 14 * u, 22 * u, [7 * u, 7 * u, 1.5 * u, 1.5 * u]);
+    ctx.fill();
+    ctx.strokeStyle = '#c9a04a';
+    ctx.lineWidth = 1.8 * u;
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 2 * u;
+  ctx.beginPath();
+  ctx.moveTo(-38 * u, -40 * u); ctx.lineTo(38 * u, -40 * u);
+  ctx.stroke();
+  ctx.fillStyle = '#e8c878';
+  for (let x = -34; x <= 34; x += 8) {
     ctx.beginPath();
-    ctx.arc(x * u, y * u, 2.6 * u, 0, Math.PI * 2);
+    ctx.arc(x * u, -40 * u, 1.1 * u, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Curved roof with an overhang, and two lamps on its corners.
+  // Roof deck with a brass railing, the pilot house, and lamps on the corners.
   ctx.fillStyle = '#2c3035';
+  ctx.fillRect(-44 * u, -92 * u, 88 * u, 8 * u);
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 1.4 * u;
+  ctx.strokeRect(-44 * u, -92 * u, 88 * u, 8 * u);
   ctx.beginPath();
-  ctx.moveTo(-49 * u, -102 * u);
-  ctx.quadraticCurveTo(0, -126 * u, 49 * u, -102 * u);
-  ctx.lineTo(49 * u, -98 * u);
-  ctx.lineTo(-49 * u, -98 * u);
-  ctx.closePath();
+  ctx.moveTo(-42 * u, -101 * u); ctx.lineTo(42 * u, -101 * u);
+  for (let x = -42; x <= 42; x += 10.5) { ctx.moveTo(x * u, -92 * u); ctx.lineTo(x * u, -101 * u); }
+  ctx.stroke();
+  ctx.fillStyle = cabin;
+  roundRect(-13 * u, -120 * u, 26 * u, 28 * u, 2 * u);
   ctx.fill();
   ctx.strokeStyle = '#c9a04a';
-  ctx.lineWidth = 1.8 * u;
+  ctx.lineWidth = 1.6 * u;
   ctx.stroke();
+  const pilot = ctx.createRadialGradient(0, -110 * u, u, 0, -110 * u, 12 * u);
+  pilot.addColorStop(0, '#ffe4a3');
+  pilot.addColorStop(1, '#d9902f');
+  ctx.fillStyle = pilot;
+  ctx.fillRect(-9 * u, -115 * u, 18 * u, 10 * u);
+  ctx.fillStyle = '#2c3035';
+  ctx.fillRect(-16 * u, -125 * u, 32 * u, 5 * u);
   for (const side of [-1, 1]) {
     ctx.fillStyle = '#c9a04a';
-    ctx.fillRect(side * 40 * u - 4 * u, -112 * u, 8 * u, 9 * u);
+    ctx.fillRect(side * 40 * u - 4 * u, -101 * u, 8 * u, 9 * u);
     ctx.fillStyle = '#ffd27a';
     ctx.beginPath();
-    ctx.arc(side * 40 * u, -107.5 * u, 2.6 * u, 0, Math.PI * 2);
+    ctx.arc(side * 40 * u, -96.5 * u, 2.6 * u, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
 }
 
-// Smoke from the chimney rises, spreads and drifts back over the train.
+// Smoke from both stacks rises, spreads and drifts back over the boat.
 function stepSmoke(dt, w, h) {
-  const { cx, by, u } = trainFrame(w, h);
+  const { cx, by, u } = boatFrame(w, h);
   const pct = run.speed / run.cfg.maxSpeed;
-  if (!run.paused && Math.random() < dt * (5 + 8 * pct)) run.smoke.push({ x: rand(-2, 2), y: 0, vx: rand(-8, 8), r: 5, a: 0.7 });
+  if (!run.paused && Math.random() < dt * (7 + 10 * pct)) {
+    const stack = STACKS[Math.floor(Math.random() * STACKS.length)];
+    run.smoke.push({ x: stack + rand(-2, 2), y: 0, vx: rand(-8, 8), r: 5, a: 0.7 });
+  }
   for (const p of run.smoke) {
     p.y += dt * (35 + 45 * pct);
     p.x += dt * p.vx;
@@ -975,19 +1102,19 @@ function stepSmoke(dt, w, h) {
   for (const p of run.smoke) {
     ctx.fillStyle = `rgba(236, 236, 232, ${p.a})`;
     ctx.beginPath();
-    ctx.arc(cx + p.x * u, by - 141 * u - p.y * u, p.r * u, 0, Math.PI * 2);
+    ctx.arc(cx + p.x * u, by - 153 * u - p.y * u, p.r * u, 0, Math.PI * 2);
     ctx.fill();
   }
 }
 
-// Darkens the ground at night, then lays a warm headlamp glow up the track so obstacles stay visible.
+// Darkens the land and water at night, then lays a warm bow-lamp glow up the river so obstacles stay visible.
 function drawNight(w, h) {
   const hz = horizonOf(w, h);
   ctx.fillStyle = `rgba(10, 14, 40, ${sky.dark * 0.45})`;
   ctx.fillRect(0, hz, w, h - hz);
   const lamp = ctx.createLinearGradient(0, h, 0, hz);
-  lamp.addColorStop(0, `rgba(255, 214, 150, ${sky.dark * 0.28})`);
-  lamp.addColorStop(1, 'rgba(255, 214, 150, 0)');
+  lamp.addColorStop(0, `rgba(190, 215, 255, ${sky.dark * 0.22})`); // a cool beam: warm light turns the blue water grey
+  lamp.addColorStop(1, 'rgba(190, 215, 255, 0)');
   ctx.fillStyle = lamp;
   ctx.beginPath();
   ctx.moveTo(w * 0.32, h); ctx.lineTo(w * 0.47, hz); ctx.lineTo(w * 0.53, hz); ctx.lineTo(w * 0.68, h);
@@ -1001,14 +1128,14 @@ function render(dt) {
   ctx.save();
   if (run.shake > 0 && !calm) ctx.translate((Math.random() - 0.5) * run.shake * w * 0.015, (Math.random() - 0.5) * run.shake * h * 0.015);
   sky = skyAt(run.z / SEG);
-  pitMarks = [];
+  poolMarks = [];
   drawSky(w, h);
   drawTrack(w, h);
   if (sky.dark > 0.02) {
     drawNight(w, h);
-    for (const [ob, p1, p2] of pitMarks) drawPit(ob, p1, p2, true); // hazard edges stay bright at night
+    for (const [x, y, scale, clip] of poolMarks) drawWhirlpool(x, y, scale, clip, true); // foam stays bright at night
   }
-  drawTrain(w, h);
+  drawBoat(w, h);
   stepSmoke(dt, w, h);
   if (!run.demo) {
     if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
@@ -1235,7 +1362,7 @@ function finish(cause = 'monster') {
   el('score-error').textContent = '';
   el('score-name').removeAttribute('aria-invalid');
   el('score-name').value = lastName();
-  announce(cause === 'pit' ? `The train fell into a pit after ${metres} metres.` : `The monster caught the train after ${metres} metres.`);
+  announce(cause === 'whirlpool' ? `The boat was pulled into a whirlpool after ${metres} metres.` : `The monster caught the boat after ${metres} metres.`);
   el('over').showModal();
   if (!form.hidden) el('score-name').focus();
 }
