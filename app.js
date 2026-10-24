@@ -1,5 +1,5 @@
 const NS = 'http://www.w3.org/2000/svg';
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
 const STORE = 'steel-mill-done';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const narrow = matchMedia('(max-width: 560px)'); // phones get larger board text (see style.css), so labels sit lower
@@ -49,8 +49,8 @@ function pressable(g, fn) {
 const outPort = (n) => [n.x + (n.kind === 'boiler' ? R : SLOT_W / 2), n.y];
 const inPort = (n, i, count) =>
   n.kind === 'piston' ? [n.x - 44, n.y] : [n.x - SLOT_W / 2, n.y + (count === 2 ? (i ? 16 : -16) : 0)];
-const pathFor = ([x1, y1], [x2, y2]) => {
-  const mx = Math.round((x1 + x2) / 2);
+const pathFor = ([x1, y1], [x2, y2], turnX) => {
+  const mx = turnX ?? Math.round((x1 + x2) / 2);
   return `M${x1} ${y1} H${mx} V${y2} H${x2}`;
 };
 
@@ -58,15 +58,19 @@ function buildBoard() {
   const lv = level();
   const board = $('board');
   board.replaceChildren();
-  // One-boiler plates sit on a single row, so crop the empty top and bottom.
   const big = narrow.matches;
   const [labelDy, stateDy] = big ? [29, 62] : [22, 46];
-  board.setAttribute('viewBox', idsOf(lv, 'boiler').length > 1 ? `0 0 560 ${big ? 326 : 308}` : `0 100 560 ${big ? 162 : 142}`);
+  // Fit the viewBox to the pieces: boiler rings on top, state labels at the bottom, the fired rod on the right.
+  const nodes = Object.values(lv.nodes);
+  const top = Math.min(...nodes.map((n) => n.y)) - R - 10;
+  const bottom = Math.max(...nodes.map((n) => n.y)) + R + stateDy + 10;
+  const right = Math.max(...nodes.map((n) => n.x + (n.kind === 'piston' ? 90 : 50)));
+  board.setAttribute('viewBox', `0 ${top} ${right} ${bottom - top}`);
 
   lv.wires.forEach((wire) => {
-    const [from, to] = wire;
+    const [from, to, turnX] = wire;
     const into = lv.wires.filter((w) => w[1] === to);
-    const d = pathFor(outPort(lv.nodes[from]), inPort(lv.nodes[to], into.indexOf(wire), into.length));
+    const d = pathFor(outPort(lv.nodes[from]), inPort(lv.nodes[to], into.indexOf(wire), into.length), turnX);
     const g = svg('g', { class: 'pipe', 'data-from': from, 'aria-hidden': 'true' }, board);
     ['tube', 'bore', 'flow'].forEach((c) => svg('path', { d, class: c }, g));
   });
@@ -185,7 +189,10 @@ function syncPlates() {
 
 // Marks the picked valve and outlines the slots it fits.
 function syncParts() {
-  $('parts').querySelectorAll('.part').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.key === state.part)));
+  $('parts').querySelectorAll('.part').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.key === state.part));
+    b.hidden = (PARTS[b.dataset.key].from || 0) > state.plate;
+  });
   const fits = state.part && PARTS[state.part].inputs;
   $('board').querySelectorAll('.slot').forEach((g) => g.classList.toggle('target', fits === level().nodes[g.dataset.id].inputs));
 }
@@ -253,7 +260,7 @@ async function runCycle() {
     state.boilers = { ...all[i] };
     const sim = update();
     renderLedger();
-    await wait(reduced ? 300 : 1000);
+    await wait(reduced ? 300 : Math.min(1000, 5000 / all.length)); // eight-row plates run faster per row
     state.rows[i] = { got: sim.P, ok: sim.P === lv.target(all[i]) };
   }
   state.running = false;
@@ -266,7 +273,7 @@ async function runCycle() {
   const bad = state.rows.findIndex((r) => !r.ok);
   if (bad < 0) return win();
   const b = all[bad];
-  const setting = idsOf(lv, 'boiler').map((id) => `${id} ${word(b[id])}`).join(' and ');
+  const setting = new Intl.ListFormat('en').format(idsOf(lv, 'boiler').map((id) => `${id} ${word(b[id])}`));
   say(`Not yet. With ${setting}, the order wants the piston to ${lv.target(b) ? 'fire' : 'rest'}, but it ${state.rows[bad].got ? 'fired' : 'stayed at rest'}.`);
 }
 
@@ -285,7 +292,7 @@ function win() {
     btn.addEventListener('click', () => goTo(next));
     parts.push(btn);
   } else {
-    parts.push(html('p', { textContent: 'Every plate in the mill is done. You have built NOT, AND, OR, and two of their combinations by hand.' }));
+    parts.push(html('p', { textContent: 'Every plate in the mill is done. You have built NOT, AND, OR, XOR, and a majority vote by hand.' }));
   }
   $('verdict').replaceChildren(...parts);
   say('Order filled. Every setting matches.');

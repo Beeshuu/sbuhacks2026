@@ -14,6 +14,9 @@ LEVELS.forEach((level, i) => {
 // Near misses that must not pass.
 assert(!inspect(LEVELS[2], { s1: 'or' }).every((r) => r.ok), 'OR passes the AND plate');
 assert(!inspect(LEVELS[5], { s1: 'and', s2: 'not' }).every((r) => r.ok), 'NAND passes the NOR plate');
+assert(!inspect(LEVELS[6], { s1: 'or' }).every((r) => r.ok), 'OR passes the XOR plate');
+assert(!inspect(LEVELS[10], { s1: 'or', s2: 'and', s3: 'and', s4: 'or' }).every((r) => r.ok), 'swapped valves pass majority');
+assert.strictEqual(inspect(LEVELS[7], {}).length, 8, 'three boilers should give eight rows');
 assert.deepStrictEqual(inspect(LEVELS[2], {}).map((r) => r.boilers), [
   { A: false, B: false }, { A: false, B: true }, { A: true, B: false }, { A: true, B: true },
 ]);

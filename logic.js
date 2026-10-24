@@ -5,9 +5,16 @@ const PARTS = {
   not: { label: 'NOT', inputs: 1, run: ([a]) => !a },
   and: { label: 'AND', inputs: 2, run: ([a, b]) => a && b },
   or: { label: 'OR', inputs: 2, run: ([a, b]) => a || b },
+  xor: { label: 'XOR', inputs: 2, run: ([a, b]) => a !== b, from: 6 }, // appears in the drawer from plate VII
 };
 
 const pair = { A: { kind: 'boiler', x: 80, y: 80 }, B: { kind: 'boiler', x: 80, y: 220 } };
+const trio = { A: { kind: 'boiler', x: 80, y: 60 }, B: { kind: 'boiler', x: 80, y: 190 }, C: { kind: 'boiler', x: 80, y: 320 } };
+// Two valves in a row: A and B meet first, then C joins.
+const chain = {
+  nodes: { ...trio, s1: { kind: 'slot', inputs: 2, x: 230, y: 125 }, s2: { kind: 'slot', inputs: 2, x: 370, y: 190 }, P: { kind: 'piston', x: 520, y: 190 } },
+  wires: [['A', 's1'], ['B', 's1'], ['s1', 's2'], ['C', 's2'], ['s2', 'P']],
+};
 
 const LEVELS = [
   {
@@ -63,6 +70,57 @@ const LEVELS = [
     wires: [['A', 's1'], ['B', 's1'], ['s1', 's2'], ['s2', 'P']],
     target: (s) => !s.A && !s.B,
     solution: { s1: 'or', s2: 'not' },
+  },
+  {
+    title: 'One or the other',
+    order: 'Fire the piston when exactly one boiler is hot. Both hot is too much.',
+    lesson: { name: 'The XOR valve', text: 'An XOR valve opens when its two pipes disagree: one hot, one cold. Two hot pipes keep it shut. In code: a !== b.' },
+    nodes: { ...pair, s1: { kind: 'slot', inputs: 2, x: 260, y: 150 }, P: { kind: 'piston', x: 430, y: 150 } },
+    wires: [['A', 's1'], ['B', 's1'], ['s1', 'P']],
+    target: (s) => s.A !== s.B,
+    solution: { s1: 'xor' },
+  },
+  {
+    title: 'Three keys',
+    order: 'Fire the piston only when all three boilers are hot.',
+    lesson: { name: 'Three boilers, two valves', text: 'A valve takes two pipes at most, so three boilers need two valves in a row. The ledger now has eight rows, one for every mix of three boilers.' },
+    ...chain,
+    target: (s) => s.A && s.B && s.C,
+    solution: { s1: 'and', s2: 'and' },
+  },
+  {
+    title: 'Odd one out',
+    order: 'Fire the piston when an odd number of boilers are hot: exactly one, or all three.',
+    lesson: { name: 'Chaining XOR', text: 'Every extra hot pipe flips an XOR answer. Follow the steam one valve at a time and count the hot boilers.' },
+    ...chain,
+    target: (s) => (s.A + s.B + s.C) % 2 === 1,
+    solution: { s1: 'xor', s2: 'xor' },
+  },
+  {
+    title: 'The override',
+    order: 'Fire the piston when boiler A or boiler B is hot, unless boiler C, the override, is hot.',
+    lesson: { name: 'Breaking an order apart', text: 'Split the order into pieces. Which part is OR, which part is NOT, and what joins them together?' },
+    nodes: { ...trio, s1: { kind: 'slot', inputs: 2, x: 230, y: 125 }, s2: { kind: 'slot', inputs: 1, x: 230, y: 320 }, s3: { kind: 'slot', inputs: 2, x: 370, y: 190 }, P: { kind: 'piston', x: 520, y: 190 } },
+    wires: [['A', 's1'], ['B', 's1'], ['C', 's2'], ['s1', 's3'], ['s2', 's3'], ['s3', 'P']],
+    target: (s) => (s.A || s.B) && !s.C,
+    solution: { s1: 'or', s2: 'not', s3: 'and' },
+  },
+  {
+    title: 'Majority vote',
+    order: 'Fire the piston when at least two of the three boilers are hot.',
+    lesson: { name: 'Split pipes', text: 'One boiler can feed two valves at once. Trace where every pipe goes before you choose, then check the ledger row by row.' },
+    nodes: {
+      ...trio,
+      s1: { kind: 'slot', inputs: 2, x: 220, y: 60 },
+      s2: { kind: 'slot', inputs: 2, x: 220, y: 190 },
+      s3: { kind: 'slot', inputs: 2, x: 340, y: 250 },
+      s4: { kind: 'slot', inputs: 2, x: 460, y: 125 },
+      P: { kind: 'piston', x: 600, y: 125 },
+    },
+    // Third item is the x where a pipe turns, set by hand so crossing pipes never share a segment.
+    wires: [['A', 's1'], ['B', 's1', 160], ['A', 's2', 135], ['B', 's2'], ['s2', 's3'], ['C', 's3'], ['s1', 's4'], ['s3', 's4'], ['s4', 'P']],
+    target: (s) => s.A + s.B + s.C >= 2,
+    solution: { s1: 'and', s2: 'or', s3: 'and', s4: 'or' },
   },
 ];
 
