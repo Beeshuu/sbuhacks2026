@@ -223,45 +223,131 @@ function strip(p1, p2, off, half, color) {
 // Tall (portrait) screens raise the horizon so more of the track shows below it.
 const horizonOf = (w, h) => h * (h > w ? 0.38 : 0.5);
 
-const CLOUDS = [[0.1, 0.25, 1], [0.38, 0.12, 0.7], [0.62, 0.32, 1.2], [0.9, 0.18, 0.8], [1.15, 0.28, 1]];
+const CLOUDS = [[0.1, 0.22, 1], [0.38, 0.1, 0.7], [0.62, 0.3, 1.2], [0.9, 0.16, 0.8], [1.15, 0.26, 1]];
 
-// Real-world colours outside the track: blue sky with clouds, blue-grey mountains, green hills and grass.
+// A fixed industrial skyline (seeded, so it never changes between frames): towers with lit windows
+// and factories with sawtooth roofs and tall chimneys. Positions are fractions of one repeating tile.
+const SKYLINE = (() => {
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const out = [];
+  for (let x = 0; x < 1; ) {
+    const factory = rnd() < 0.4;
+    const width = factory ? 0.05 + rnd() * 0.05 : 0.015 + rnd() * 0.025;
+    const height = factory ? 0.025 + rnd() * 0.02 : 0.04 + rnd() * 0.08;
+    const lights = Array.from({ length: 12 }, () => rnd() < 0.35);
+    const stacks = factory ? Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => [0.15 + rnd() * 0.7, 0.05 + rnd() * 0.05]) : [];
+    out.push({ x, width, height, factory, lights, stacks });
+    x += width + rnd() * 0.012;
+  }
+  return out;
+})();
+
+// Sunset outside the track: indigo to orange sky, a low sun, warm clouds, purple mountains,
+// a smoky industrial skyline, dark hills and evening grass.
 function drawSky(w, h) {
   const hz = horizonOf(w, h);
   const sky = ctx.createLinearGradient(0, 0, 0, hz);
-  sky.addColorStop(0, '#3f7fc4');
-  sky.addColorStop(0.6, '#86b9e3');
-  sky.addColorStop(1, '#d6e9f2');
+  sky.addColorStop(0, '#2b2a5c');
+  sky.addColorStop(0.45, '#8a3f6b');
+  sky.addColorStop(0.8, '#e8734a');
+  sky.addColorStop(1, '#f6b26b');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, hz + 1);
+
+  const sunX = w * 0.68 - run.hills * w * 0.6;
+  const sunY = hz - h * 0.06;
+  const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, w * 0.25);
+  halo.addColorStop(0, 'rgba(255, 214, 140, 0.75)');
+  halo.addColorStop(1, 'rgba(255, 214, 140, 0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, w, hz);
+  ctx.fillStyle = '#ffd98a';
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, w * 0.045, 0, Math.PI * 2);
+  ctx.fill();
+
   const span = w * 1.4;
   const drift = run.hills * w * 3 + run.time * w * 0.006;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
   for (const [cx, cy, size] of CLOUDS) {
     const x = (((cx * w - drift) % span) + span) % span - w * 0.2;
     const y = cy * hz;
     const r = w * 0.035 * size;
-    for (const [dx, dy, k] of [[0, 0, 1], [1.1, 0.2, 0.8], [-1.1, 0.25, 0.75], [0.4, -0.45, 0.85]]) {
+    for (const [dx, dy, k, color] of [[0, 0.15, 1, 'rgba(120, 60, 100, 0.55)'], [0, 0, 1, 'rgba(250, 170, 130, 0.9)'], [1.1, 0.2, 0.8, 'rgba(244, 150, 120, 0.85)'], [-1.1, 0.25, 0.75, 'rgba(244, 150, 120, 0.85)']]) {
+      ctx.fillStyle = color;
       ctx.beginPath();
       ctx.ellipse(x + dx * r, y + dy * r, r * k * 1.3, r * k, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
-  // Mountains, then two rows of hills, each sliding sideways in bends at its own pace.
-  [['#9db2c7', 0.14, 0.25, 1.3], ['#7f9f68', 0.075, 0.55, 2.4], ['#5f8c45', 0.04, 1, 3.7]].forEach(([color, amp, speed, freq]) => {
+
+  const ridge = (color, amp, speed, freq) => {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(0, hz);
     for (let i = 0; i <= 60; i++) {
       const t = (i / 60) * freq * Math.PI * 2 + run.hills * speed * 40;
-      const ridge = 0.55 + 0.27 * Math.sin(t) + 0.13 * Math.sin(t * 2.3 + 1) + 0.05 * Math.sin(t * 5.1);
-      ctx.lineTo((i / 60) * w, hz - h * amp * ridge);
+      const r = 0.55 + 0.27 * Math.sin(t) + 0.13 * Math.sin(t * 2.3 + 1) + 0.05 * Math.sin(t * 5.1);
+      ctx.lineTo((i / 60) * w, hz - h * amp * r);
     }
     ctx.lineTo(w, hz);
     ctx.fill();
-  });
-  ctx.fillStyle = '#79a650';
+  };
+  ridge('#7a5577', 0.13, 0.25, 1.3);
+  drawSkyline(w, h, hz);
+  ridge('#4a3b3a', 0.035, 1, 3.7);
+  ctx.fillStyle = '#5f6e33';
   ctx.fillRect(0, hz, w, h - hz);
+}
+
+function drawSkyline(w, h, hz) {
+  const tile = w * 1.6;
+  const offset = ((run.hills * w * 1.2) % tile + tile) % tile;
+  for (const copy of [-1, 0, 1]) {
+    for (const b of SKYLINE) {
+      const x = b.x * tile - offset + copy * tile;
+      const bw = b.width * tile;
+      if (x > w || x + bw < 0) continue;
+      const top = hz - b.height * h;
+      ctx.fillStyle = '#3b2b3e';
+      if (b.factory) {
+        ctx.beginPath();
+        ctx.moveTo(x, hz);
+        ctx.lineTo(x, top);
+        const teeth = 4;
+        for (let i = 0; i < teeth; i++) {
+          ctx.lineTo(x + (bw * (i + 1)) / teeth, top - h * 0.012);
+          ctx.lineTo(x + (bw * (i + 1)) / teeth, top);
+        }
+        ctx.lineTo(x + bw, hz);
+        ctx.fill();
+        for (const [at, tall] of b.stacks) {
+          const sx = x + at * bw;
+          ctx.fillStyle = '#3b2b3e';
+          ctx.fillRect(sx - bw * 0.03, hz - tall * h, bw * 0.06, tall * h);
+          // Chimney smoke drifts off to the left and thins out.
+          for (let k = 0; k < 4; k++) {
+            const t = ((run.time * 0.25 + k / 4 + at) % 1);
+            ctx.fillStyle = `rgba(90, 70, 90, ${0.45 * (1 - t)})`;
+            ctx.beginPath();
+            ctx.arc(sx - t * w * 0.03, hz - tall * h - t * h * 0.05, w * (0.004 + t * 0.01), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.fillStyle = '#ffcf6a';
+        for (let i = 0; i < 4; i++) if (b.lights[i]) ctx.fillRect(x + bw * (0.15 + i * 0.2), top + (hz - top) * 0.45, bw * 0.08, (hz - top) * 0.18);
+      } else {
+        ctx.fillRect(x, top, bw, hz - top);
+        ctx.fillStyle = '#ffcf6a';
+        b.lights.forEach((on, i) => {
+          if (!on) return;
+          const col = i % 3;
+          const row = Math.floor(i / 3);
+          ctx.fillRect(x + bw * (0.18 + col * 0.25), top + (hz - top) * (0.12 + row * 0.2), bw * 0.14, (hz - top) * 0.07);
+        });
+      }
+    }
+  }
 }
 
 function drawObstacle(ob, p, clipY) {
@@ -306,14 +392,14 @@ function drawTree(item, p, clipY) {
   if (item.kind === 'tree') {
     ctx.fillStyle = '#6b4a2b';
     ctx.fillRect(x - size * 0.05, p.y - size * 0.5, size * 0.1, size * 0.5);
-    for (const [dx, dy, r, color] of [[0, -0.75, 0.32, '#3f7a35'], [-0.18, -0.55, 0.24, '#4c8c3c'], [0.18, -0.58, 0.24, '#36702e'], [0, -1, 0.22, '#4c8c3c']]) {
+    for (const [dx, dy, r, color] of [[0, -0.75, 0.32, '#33532b'], [-0.18, -0.55, 0.24, '#3e6332'], [0.18, -0.58, 0.24, '#2b4a25'], [0, -1, 0.22, '#3e6332']]) {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(x + dx * size, p.y + dy * size, r * size, 0, Math.PI * 2);
       ctx.fill();
     }
   } else {
-    for (const [dx, r, color] of [[-0.3, 0.32, '#4f8a3a'], [0.3, 0.3, '#467f34'], [0, 0.4, '#5a9842']]) {
+    for (const [dx, r, color] of [[-0.3, 0.32, '#3f5f2e'], [0.3, 0.3, '#375529'], [0, 0.4, '#4a6b35']]) {
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(x + dx * size, p.y - r * size * 0.8, r * size, 0, Math.PI * 2);
@@ -362,7 +448,7 @@ function drawTrack(w, h) {
     dx += seg.curve;
     if (p1.cz <= 1 || p2.y >= maxY) continue;
     const clip = maxY;
-    ctx.fillStyle = Math.floor(abs / 4) % 2 ? '#7cab52' : '#73a14b';
+    ctx.fillStyle = Math.floor(abs / 4) % 2 ? '#647538' : '#5c6c33';
     ctx.fillRect(0, p2.y, w, p1.y - p2.y + 1);
     strip(p1, p2, 0, 1, '#bfa982');
     // A sleeper under the front of each nearby segment; far away they would only flicker.
@@ -393,7 +479,7 @@ function drawMonster(cx, baseY, size) {
     ctx.lineTo(cx + s * size * 0.42, baseY - size * 1.05);
     ctx.lineTo(cx + s * size * 0.36, baseY - size * 0.62);
     ctx.fill();
-    ctx.fillStyle = C.face;
+    ctx.fillStyle = '#ffcf5a';
     ctx.beginPath();
     ctx.ellipse(cx + s * size * 0.17, baseY - size * 0.55, size * 0.09, size * 0.06, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -414,23 +500,37 @@ function drawMonster(cx, baseY, size) {
   ctx.fill();
 }
 
-// The rear-view mirror: the monster grows as it closes in.
+// The rear-view mirror: an iron frame with brass rivets, a sunset reflection, and the monster growing as it closes in.
 function drawMirror(w, h) {
-  const mw = Math.min(w * 0.26, 260);
+  const mw = Math.min(w * 0.26, 260 * (canvas.width / canvas.clientWidth));
   const mh = mw * 0.42;
   const mx = w / 2 - mw / 2;
   const my = mirrorTop;
+  const rim = mw * 0.03;
   ctx.save();
-  ctx.fillStyle = C.brass;
-  ctx.fillRect(mx - 5, my - 5, mw + 10, mh + 10);
+  ctx.fillStyle = '#2c3035';
+  roundRect(mx - rim, my - rim, mw + rim * 2, mh + rim * 2, rim);
+  ctx.fill();
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = Math.max(1.5, rim * 0.3);
+  ctx.stroke();
+  ctx.fillStyle = '#e8c878';
+  for (const fx of [0.02, 0.98]) for (const fy of [0.05, 0.95]) {
+    ctx.beginPath();
+    ctx.arc(mx - rim + fx * (mw + rim * 2), my - rim + fy * (mh + rim * 2), rim * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.beginPath();
   ctx.rect(mx, my, mw, mh);
   ctx.clip();
-  ctx.fillStyle = C.plate;
-  ctx.fillRect(mx, my, mw, mh);
-  ctx.fillStyle = '#d9c9a2';
+  const glass = ctx.createLinearGradient(0, my, 0, my + mh * 0.45);
+  glass.addColorStop(0, '#5a3352');
+  glass.addColorStop(1, '#f0925a');
+  ctx.fillStyle = glass;
+  ctx.fillRect(mx, my, mw, mh * 0.45);
+  ctx.fillStyle = '#3a2f2c';
   ctx.fillRect(mx, my + mh * 0.45, mw, mh * 0.55);
-  ctx.strokeStyle = C.brass;
+  ctx.strokeStyle = '#c9a04a';
   ctx.lineWidth = 2;
   for (const off of [-0.3, -0.12, 0.12, 0.3]) {
     ctx.beginPath();
@@ -488,23 +588,19 @@ function trainFrame(w, h) {
   return { cx: w / 2, by: horizonOf(w, h) + sc * CAM_H * h / 2 - u * 6, u };
 }
 
-// The player's steampunk locomotive, seen from behind: green cab with brass trim, a lit window,
-// turning cogs, a copper pipe, red wheels, and a flared chimney. It leans into steering.
+// The player's steampunk locomotive, seen from just behind and above. The grey body runs from the cab
+// all the way to the bottom of the screen, as if the camera rides on the train. It leans into steering.
 function drawTrain(w, h) {
   const { cx, by, u } = trainFrame(w, h);
   const pct = run.speed / run.cfg.maxSpeed;
   const bob = calm ? 0 : Math.sin(run.z * 0.004) * u * 0.6 * pct;
+  const low = h - by + 40 * u; // past the bottom edge even while leaning
   ctx.save();
   ctx.translate(cx, by + bob);
   ctx.rotate((keys.right - keys.left) * 0.035);
 
-  ctx.fillStyle = 'rgba(30, 40, 20, 0.28)';
-  ctx.beginPath();
-  ctx.ellipse(0, 6 * u, 60 * u, 8 * u, 0, 0, Math.PI * 2);
-  ctx.fill();
-
   // Chimney and steam dome stand on the boiler ahead of the cab, so they show above the roof.
-  ctx.fillStyle = '#1c1714';
+  ctx.fillStyle = '#1c1c1f';
   ctx.beginPath();
   ctx.moveTo(-6 * u, -104 * u); ctx.lineTo(-6 * u, -128 * u); ctx.lineTo(-11 * u, -141 * u);
   ctx.lineTo(11 * u, -141 * u); ctx.lineTo(6 * u, -128 * u); ctx.lineTo(6 * u, -104 * u);
@@ -515,65 +611,45 @@ function drawTrain(w, h) {
   ctx.arc(18 * u, -110 * u, 7 * u, Math.PI, 0);
   ctx.fill();
 
-  // Wheels, half hidden behind the cab.
-  for (const side of [-1, 1]) {
-    const wx = side * 45 * u;
-    ctx.fillStyle = '#7a2418';
-    ctx.strokeStyle = '#c9a04a';
-    ctx.lineWidth = 2.5 * u;
-    ctx.beginPath();
-    ctx.arc(wx, -13 * u, 13 * u, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.lineWidth = 1.2 * u;
-    for (let k = 0; k < 4; k++) {
-      const a = (k / 4) * Math.PI + run.z * 0.002;
-      ctx.beginPath();
-      ctx.moveTo(wx - Math.cos(a) * 11 * u, -13 * u - Math.sin(a) * 11 * u);
-      ctx.lineTo(wx + Math.cos(a) * 11 * u, -13 * u + Math.sin(a) * 11 * u);
-      ctx.stroke();
-    }
-  }
-
-  // Buffer beam and buffers.
-  ctx.fillStyle = '#2a201a';
-  roundRect(-53 * u, -31 * u, 106 * u, 15 * u, 2 * u);
-  ctx.fill();
-  ctx.fillStyle = '#a3361f';
-  ctx.fillRect(-53 * u, -25 * u, 106 * u, 2.5 * u);
-  for (const side of [-1, 1]) {
-    ctx.fillStyle = '#c9a04a';
-    ctx.beginPath();
-    ctx.arc(side * 35 * u, -23 * u, 6.5 * u, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#7a5a20';
-    ctx.beginPath();
-    ctx.arc(side * 35 * u, -23 * u, 3 * u, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Cab.
-  const body = ctx.createLinearGradient(-44 * u, 0, 44 * u, 0);
-  body.addColorStop(0, '#1f4038');
-  body.addColorStop(0.5, '#3a7263');
-  body.addColorStop(1, '#1f4038');
+  // Body: widens slightly toward the viewer, gunmetal grey with a lighter middle.
+  const body = ctx.createLinearGradient(-47 * u, 0, 47 * u, 0);
+  body.addColorStop(0, '#3e4349');
+  body.addColorStop(0.5, '#858c94');
+  body.addColorStop(1, '#3e4349');
   ctx.fillStyle = body;
-  roundRect(-44 * u, -104 * u, 88 * u, 74 * u, 3 * u);
+  ctx.beginPath();
+  ctx.moveTo(-44 * u, -104 * u); ctx.lineTo(44 * u, -104 * u);
+  ctx.lineTo(48 * u, low); ctx.lineTo(-48 * u, low);
+  ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 2.2 * u;
+  ctx.stroke();
+
+  // Brass bands with rivets, repeating down the length of the body.
+  const bands = [-86, -42];
+  for (let y = 0; y * u < low; y += 42) bands.push(y);
   ctx.lineWidth = 2 * u;
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-44 * u, -42 * u); ctx.lineTo(44 * u, -42 * u);
-  ctx.moveTo(-44 * u, -86 * u); ctx.lineTo(44 * u, -86 * u);
-  ctx.stroke();
-  ctx.fillStyle = '#e8c878';
-  for (let x = -40; x <= 40; x += 8) {
-    for (const y of [-42, -86]) {
+  for (const y of bands) {
+    const half = 44 + (4 * (y + 104)) / ((low / u) + 104);
+    ctx.strokeStyle = '#c9a04a';
+    ctx.beginPath();
+    ctx.moveTo(-half * u, y * u); ctx.lineTo(half * u, y * u);
+    ctx.stroke();
+    ctx.fillStyle = '#e8c878';
+    for (let x = -half + 4; x <= half - 4; x += 8) {
       ctx.beginPath();
       ctx.arc(x * u, y * u, 1.1 * u, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+  // Panel seams running toward the viewer.
+  ctx.strokeStyle = 'rgba(28, 28, 31, 0.55)';
+  ctx.lineWidth = 1.4 * u;
+  for (const x of [-26, 26]) {
+    ctx.beginPath();
+    ctx.moveTo(x * u, -42 * u); ctx.lineTo(x * 1.06 * u, low);
+    ctx.stroke();
   }
 
   // Lit rear window with a centre bar.
@@ -590,9 +666,10 @@ function drawTrain(w, h) {
   ctx.moveTo(0, -97 * u); ctx.lineTo(0, -73 * u);
   ctx.stroke();
 
-  // Cogs and a pressure gauge on the cab back; the gauge reads the train's speed.
+  // Cogs and a pressure gauge; the gauge reads the train's speed.
   drawGear(-27 * u, -60 * u, 10 * u, 8);
   drawGear(-12 * u, -53 * u, 6 * u, 6);
+  drawGear(30 * u, -14 * u, 8 * u, 7);
   ctx.fillStyle = '#f8f2e4';
   ctx.strokeStyle = '#c9a04a';
   ctx.lineWidth = 2 * u;
@@ -608,22 +685,23 @@ function drawTrain(w, h) {
   ctx.lineTo(26 * u + Math.cos(needle) * 6 * u, -60 * u + Math.sin(needle) * 6 * u);
   ctx.stroke();
 
-  // Copper steam pipe across the lower cab, with joints.
+  // Copper steam pipes with joints.
   ctx.strokeStyle = '#b8642f';
   ctx.lineWidth = 3.5 * u;
   ctx.lineCap = 'round';
   ctx.beginPath();
   ctx.moveTo(-40 * u, -36 * u); ctx.lineTo(40 * u, -36 * u);
+  ctx.moveTo(-36 * u, -36 * u); ctx.lineTo(-38 * u, low);
   ctx.stroke();
   ctx.fillStyle = '#d98a4f';
-  for (const x of [-30, 0, 30]) {
+  for (const [x, y] of [[-30, -36], [0, -36], [30, -36], [-36.5, 10], [-37, 50]]) {
     ctx.beginPath();
-    ctx.arc(x * u, -36 * u, 2.6 * u, 0, Math.PI * 2);
+    ctx.arc(x * u, y * u, 2.6 * u, 0, Math.PI * 2);
     ctx.fill();
   }
 
   // Curved roof with an overhang, and two lamps on its corners.
-  ctx.fillStyle = '#163029';
+  ctx.fillStyle = '#2c3035';
   ctx.beginPath();
   ctx.moveTo(-49 * u, -102 * u);
   ctx.quadraticCurveTo(0, -126 * u, 49 * u, -102 * u);
