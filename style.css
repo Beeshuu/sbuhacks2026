@@ -424,6 +424,28 @@ kbd {
   .turn-sign svg { width: 40px; height: 40px; }
 }
 
-/* Steampunk speedometer in the HUD: just the brass gauge, no card behind it. */
-.speedo svg { width: 96px; height: 96px; display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)); } /* lifts the brass off any sky colour */
-@media (max-width: 600px) { .speedo svg { width: 72px; height: 72px; } }
+/* Dashboard at the top left: the brass speedometer, speed in glass below it, distance in glass beside it.
+   The glass is a dark smoked tint, so light text reads over both the dark sky and the bright clouds. */
+.dash { align-items: flex-start; gap: 10px; }
+.speedo { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.speedo svg { width: 144px; height: 144px; display: block; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35)); }
+.dash-side { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.glass {
+  margin: 0;
+  padding: 5px 12px;
+  color: var(--face);
+  background: rgba(28, 22, 36, 0.62);
+  border: 1px solid rgba(248, 242, 228, 0.3);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  text-align: center;
+  min-width: 7.5em;
+}
+.glass .gauge-label { color: var(--face); }
+@media (max-width: 600px) {
+  .speedo svg { width: 108px; height: 108px; }
+  .glass { min-width: 6.5em; padding: 4px 10px; }
+}
