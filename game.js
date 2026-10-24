@@ -1,4 +1,4 @@
-// The endless run: a first-person view from the cab, drawn segment by segment on a canvas
+// The endless run: a chase view from behind the locomotive, drawn segment by segment on a canvas
 // (the pseudo-3D method of classic arcade racers). Uses Workshop (app.js) for engine faults
 // and Chain (solana.js) for the devnet leaderboard.
 // Wrapped in a function so its names (update, say, ...) don't collide with app.js.
@@ -15,11 +15,12 @@ const LANES = [-0.66, 0, 0.66];
 const GAP_MAX = 120; // metres: the furthest the monster falls behind
 const HIT_RANGE = 0.42; // obstacle half-width plus train half-width, in track half-widths
 
-// Every number a player feels comes from here.
+// Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
+// at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
 const MODES = {
-  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, pull: 0.28, fault: [38, 55], repair: 40, plates: [0, 1, 2, 3] },
-  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, pull: 0.32, fault: [28, 42], repair: 32, plates: [2, 3, 4, 5, 6] },
-  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, pull: 0.36, fault: [20, 32], repair: 26, plates: [5, 6, 7, 8, 9, 10] },
+  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, pull: 0.15, fault: [38, 55], repair: 40, plates: [0, 1, 2, 3] },
+  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, pull: 0.12, fault: [28, 42], repair: 32, plates: [2, 3, 4, 5, 6] },
+  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, pull: 0.1, fault: [20, 32], repair: 26, plates: [5, 6, 7, 8, 9, 10] },
 };
 
 const C = { ink: '#2b2118', ink2: '#5a4630', brass: '#8a6420', face: '#f8f2e4', plate: '#e8dcc0', paper: '#f1e9d6', rule: '#cdb98d' };
@@ -85,6 +86,10 @@ function addSegment() {
     seg.obstacles = lanes.map((l) => ({ x: LANES[l], kind: Math.random() < 0.5 ? 'rock' : 'crate', hit: false }));
     run.lastObstacle = abs;
   }
+  // Trees and bushes beside the line, for colour and a sense of speed. Purely visual.
+  seg.scenery = Math.random() < 0.14
+    ? [{ x: (Math.random() < 0.5 ? -1 : 1) * rand(1.6, 3.4), kind: Math.random() < 0.6 ? 'tree' : 'bush' }]
+    : [];
   run.segs[abs % RING] = seg;
 }
 
@@ -218,27 +223,44 @@ function strip(p1, p2, off, half, color) {
 // Tall (portrait) screens raise the horizon so more of the track shows below it.
 const horizonOf = (w, h) => h * (h > w ? 0.38 : 0.5);
 
+const CLOUDS = [[0.1, 0.25, 1], [0.38, 0.12, 0.7], [0.62, 0.32, 1.2], [0.9, 0.18, 0.8], [1.15, 0.28, 1]];
+
+// Real-world colours outside the track: blue sky with clouds, blue-grey mountains, green hills and grass.
 function drawSky(w, h) {
   const hz = horizonOf(w, h);
   const sky = ctx.createLinearGradient(0, 0, 0, hz);
-  sky.addColorStop(0, '#eadcbd');
-  sky.addColorStop(1, C.face);
+  sky.addColorStop(0, '#3f7fc4');
+  sky.addColorStop(0.6, '#86b9e3');
+  sky.addColorStop(1, '#d6e9f2');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, hz + 1);
-  // Two rows of hills that slide sideways in bends, for a sense of turning.
-  [[C.rule, 0.06, 0.5, 2.1], ['#d9c79c', 0.035, 0.9, 3.3]].forEach(([color, amp, speed, freq]) => {
+  const span = w * 1.4;
+  const drift = run.hills * w * 3 + run.time * w * 0.006;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  for (const [cx, cy, size] of CLOUDS) {
+    const x = (((cx * w - drift) % span) + span) % span - w * 0.2;
+    const y = cy * hz;
+    const r = w * 0.035 * size;
+    for (const [dx, dy, k] of [[0, 0, 1], [1.1, 0.2, 0.8], [-1.1, 0.25, 0.75], [0.4, -0.45, 0.85]]) {
+      ctx.beginPath();
+      ctx.ellipse(x + dx * r, y + dy * r, r * k * 1.3, r * k, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  // Mountains, then two rows of hills, each sliding sideways in bends at its own pace.
+  [['#9db2c7', 0.14, 0.25, 1.3], ['#7f9f68', 0.075, 0.55, 2.4], ['#5f8c45', 0.04, 1, 3.7]].forEach(([color, amp, speed, freq]) => {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(0, hz);
-    for (let i = 0; i <= 40; i++) {
-      const px = (i / 40) * w;
-      const t = i / 40 * freq * Math.PI * 2 + run.hills * speed * 40;
-      ctx.lineTo(px, hz - h * amp * (0.6 + 0.4 * Math.sin(t) * Math.sin(t * 0.37 + 1)));
+    for (let i = 0; i <= 60; i++) {
+      const t = (i / 60) * freq * Math.PI * 2 + run.hills * speed * 40;
+      const ridge = 0.55 + 0.27 * Math.sin(t) + 0.13 * Math.sin(t * 2.3 + 1) + 0.05 * Math.sin(t * 5.1);
+      ctx.lineTo((i / 60) * w, hz - h * amp * ridge);
     }
     ctx.lineTo(w, hz);
     ctx.fill();
   });
-  ctx.fillStyle = '#e2d4b2';
+  ctx.fillStyle = '#79a650';
   ctx.fillRect(0, hz, w, h - hz);
 }
 
@@ -269,6 +291,34 @@ function drawObstacle(ob, p, clipY) {
     ctx.moveTo(sx - wide / 2, p.y - tall); ctx.lineTo(sx + wide / 2, p.y);
     ctx.moveTo(sx + wide / 2, p.y - tall); ctx.lineTo(sx - wide / 2, p.y);
     ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawTree(item, p, clipY) {
+  const x = p.x + item.x * p.w;
+  const size = p.w * (item.kind === 'tree' ? 0.7 : 0.3);
+  if (x < -size || x > canvas.width + size) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, canvas.width, clipY);
+  ctx.clip();
+  if (item.kind === 'tree') {
+    ctx.fillStyle = '#6b4a2b';
+    ctx.fillRect(x - size * 0.05, p.y - size * 0.5, size * 0.1, size * 0.5);
+    for (const [dx, dy, r, color] of [[0, -0.75, 0.32, '#3f7a35'], [-0.18, -0.55, 0.24, '#4c8c3c'], [0.18, -0.58, 0.24, '#36702e'], [0, -1, 0.22, '#4c8c3c']]) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + dx * size, p.y + dy * size, r * size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    for (const [dx, r, color] of [[-0.3, 0.32, '#4f8a3a'], [0.3, 0.3, '#467f34'], [0, 0.4, '#5a9842']]) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x + dx * size, p.y - r * size * 0.8, r * size, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   ctx.restore();
 }
@@ -312,7 +362,7 @@ function drawTrack(w, h) {
     dx += seg.curve;
     if (p1.cz <= 1 || p2.y >= maxY) continue;
     const clip = maxY;
-    ctx.fillStyle = Math.floor(abs / 4) % 2 ? '#e2d4b2' : '#ddcfac';
+    ctx.fillStyle = Math.floor(abs / 4) % 2 ? '#7cab52' : '#73a14b';
     ctx.fillRect(0, p2.y, w, p1.y - p2.y + 1);
     strip(p1, p2, 0, 1, '#bfa982');
     // A sleeper under the front of each nearby segment; far away they would only flicker.
@@ -322,11 +372,12 @@ function drawTrack(w, h) {
     }
     for (const lane of LANES) for (const side of [-0.11, 0.11]) strip(p1, p2, lane + side, 0.018, '#4a3b2a');
     maxY = p2.y;
-    if (seg.obstacles.length || abs % 25 === 0) shown.push({ seg, abs, p1, clip });
+    if (seg.obstacles.length || seg.scenery.length || abs % 25 === 0) shown.push({ seg, abs, p1, clip });
   }
   for (let i = shown.length - 1; i >= 0; i--) {
     const { seg, abs, p1, clip } = shown[i];
     if (abs % 25 === 0) for (const side of [-1.35, 1.35]) drawPole(p1.x + side * p1.w, p1.y, p1.w, clip);
+    for (const item of seg.scenery) drawTree(item, p1, clip);
     for (const ob of seg.obstacles) if (!ob.hit) drawObstacle(ob, p1, clip);
   }
 }
@@ -408,68 +459,210 @@ function drawClaws(w, h, t) {
   }
 }
 
-// The view from the cab: window pillars, a roof beam, and the boiler stretching ahead with its chimney.
-function drawCab(w, h) {
-  const lean = (keys.right - keys.left) * w * 0.006;
-  const cx = w / 2 + lean;
-  const top = h * 0.8;
-  const tw = w * 0.07;
-  const bw = w * 0.22;
-  quad(cx - tw, top, cx + tw, top, cx + bw, h, cx - bw, h, C.face);
-  ctx.strokeStyle = C.brass;
-  ctx.lineWidth = Math.max(2, w * 0.003);
+function roundRect(x, y, w, h, r) {
   ctx.beginPath();
-  ctx.moveTo(cx - tw, top); ctx.lineTo(cx - bw, h); ctx.moveTo(cx + tw, top); ctx.lineTo(cx + bw, h);
-  for (const t of [0.35, 0.7]) {
-    const y = top + (h - top) * t;
-    const half = tw + (bw - tw) * t;
-    ctx.moveTo(cx - half, y); ctx.lineTo(cx + half, y);
+  ctx.roundRect(x, y, w, h, r);
+}
+
+function drawGear(x, y, r, teeth) {
+  ctx.fillStyle = '#c9a04a';
+  ctx.beginPath();
+  for (let i = 0; i < teeth * 2; i++) {
+    const a = (i / (teeth * 2)) * Math.PI * 2 + run.z * 0.0004; // the cogs turn as the train moves
+    const rr = i % 2 ? r * 0.78 : r;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
   }
-  ctx.stroke();
-  // Chimney at the far end of the boiler, with smoke streaming back over the cab.
-  const chW = w * 0.024;
-  ctx.fillStyle = C.ink;
-  ctx.fillRect(cx - chW / 2, top - h * 0.06, chW, h * 0.06 + 2);
-  ctx.fillRect(cx - chW * 0.8, top - h * 0.07, chW * 1.6, h * 0.014);
-  ctx.fillStyle = C.ink;
-  ctx.beginPath();
-  ctx.ellipse(cx, top, tw * 0.95, h * 0.012, 0, 0, Math.PI * 2);
+  ctx.closePath();
   ctx.fill();
-  for (const p of run.smoke) {
-    ctx.fillStyle = `rgba(248, 242, 228, ${p.a})`;
-    ctx.strokeStyle = `rgba(138, 100, 32, ${p.a * 0.6})`;
+  ctx.fillStyle = '#5a3d14';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Where the locomotive sits on screen: its wheels rest on the track at the train's own distance ahead.
+function trainFrame(w, h) {
+  const sc = DEPTH / AHEAD;
+  const roadHalf = sc * ROAD * w / 2;
+  const u = (roadHalf * 0.27) / 100; // drawing unit: the train is about 100u wide, a little over a lane
+  return { cx: w / 2, by: horizonOf(w, h) + sc * CAM_H * h / 2 - u * 6, u };
+}
+
+// The player's steampunk locomotive, seen from behind: green cab with brass trim, a lit window,
+// turning cogs, a copper pipe, red wheels, and a flared chimney. It leans into steering.
+function drawTrain(w, h) {
+  const { cx, by, u } = trainFrame(w, h);
+  const pct = run.speed / run.cfg.maxSpeed;
+  const bob = calm ? 0 : Math.sin(run.z * 0.004) * u * 0.6 * pct;
+  ctx.save();
+  ctx.translate(cx, by + bob);
+  ctx.rotate((keys.right - keys.left) * 0.035);
+
+  ctx.fillStyle = 'rgba(30, 40, 20, 0.28)';
+  ctx.beginPath();
+  ctx.ellipse(0, 6 * u, 60 * u, 8 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Chimney and steam dome stand on the boiler ahead of the cab, so they show above the roof.
+  ctx.fillStyle = '#1c1714';
+  ctx.beginPath();
+  ctx.moveTo(-6 * u, -104 * u); ctx.lineTo(-6 * u, -128 * u); ctx.lineTo(-11 * u, -141 * u);
+  ctx.lineTo(11 * u, -141 * u); ctx.lineTo(6 * u, -128 * u); ctx.lineTo(6 * u, -104 * u);
+  ctx.fill();
+  ctx.fillStyle = '#c9a04a';
+  ctx.fillRect(-7 * u, -131 * u, 14 * u, 3 * u);
+  ctx.beginPath();
+  ctx.arc(18 * u, -110 * u, 7 * u, Math.PI, 0);
+  ctx.fill();
+
+  // Wheels, half hidden behind the cab.
+  for (const side of [-1, 1]) {
+    const wx = side * 45 * u;
+    ctx.fillStyle = '#7a2418';
+    ctx.strokeStyle = '#c9a04a';
+    ctx.lineWidth = 2.5 * u;
     ctx.beginPath();
-    ctx.arc(cx + p.x * w, top - h * 0.07 - p.y * h, p.r * w, 0, Math.PI * 2);
+    ctx.arc(wx, -13 * u, 13 * u, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-  }
-  // Cab frame.
-  ctx.fillStyle = C.ink;
-  const pillar = Math.max(14, w * 0.035);
-  ctx.fillRect(0, 0, pillar, h);
-  ctx.fillRect(w - pillar, 0, pillar, h);
-  ctx.fillRect(0, 0, w, h * 0.05);
-  ctx.fillStyle = C.brass;
-  for (let y = h * 0.12; y < h; y += h * 0.12) {
-    for (const px of [pillar / 2, w - pillar / 2]) {
+    ctx.lineWidth = 1.2 * u;
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI + run.z * 0.002;
       ctx.beginPath();
-      ctx.arc(px, y, Math.max(2, pillar * 0.14), 0, Math.PI * 2);
+      ctx.moveTo(wx - Math.cos(a) * 11 * u, -13 * u - Math.sin(a) * 11 * u);
+      ctx.lineTo(wx + Math.cos(a) * 11 * u, -13 * u + Math.sin(a) * 11 * u);
+      ctx.stroke();
+    }
+  }
+
+  // Buffer beam and buffers.
+  ctx.fillStyle = '#2a201a';
+  roundRect(-53 * u, -31 * u, 106 * u, 15 * u, 2 * u);
+  ctx.fill();
+  ctx.fillStyle = '#a3361f';
+  ctx.fillRect(-53 * u, -25 * u, 106 * u, 2.5 * u);
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = '#c9a04a';
+    ctx.beginPath();
+    ctx.arc(side * 35 * u, -23 * u, 6.5 * u, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7a5a20';
+    ctx.beginPath();
+    ctx.arc(side * 35 * u, -23 * u, 3 * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Cab.
+  const body = ctx.createLinearGradient(-44 * u, 0, 44 * u, 0);
+  body.addColorStop(0, '#1f4038');
+  body.addColorStop(0.5, '#3a7263');
+  body.addColorStop(1, '#1f4038');
+  ctx.fillStyle = body;
+  roundRect(-44 * u, -104 * u, 88 * u, 74 * u, 3 * u);
+  ctx.fill();
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 2 * u;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-44 * u, -42 * u); ctx.lineTo(44 * u, -42 * u);
+  ctx.moveTo(-44 * u, -86 * u); ctx.lineTo(44 * u, -86 * u);
+  ctx.stroke();
+  ctx.fillStyle = '#e8c878';
+  for (let x = -40; x <= 40; x += 8) {
+    for (const y of [-42, -86]) {
+      ctx.beginPath();
+      ctx.arc(x * u, y * u, 1.1 * u, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+
+  // Lit rear window with a centre bar.
+  const glow = ctx.createRadialGradient(0, -78 * u, 2 * u, 0, -78 * u, 24 * u);
+  glow.addColorStop(0, '#ffe4a3');
+  glow.addColorStop(1, '#d9902f');
+  ctx.fillStyle = glow;
+  roundRect(-17 * u, -97 * u, 34 * u, 24 * u, [9 * u, 9 * u, 2 * u, 2 * u]);
+  ctx.fill();
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 2.5 * u;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -97 * u); ctx.lineTo(0, -73 * u);
+  ctx.stroke();
+
+  // Cogs and a pressure gauge on the cab back; the gauge reads the train's speed.
+  drawGear(-27 * u, -60 * u, 10 * u, 8);
+  drawGear(-12 * u, -53 * u, 6 * u, 6);
+  ctx.fillStyle = '#f8f2e4';
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 2 * u;
+  ctx.beginPath();
+  ctx.arc(26 * u, -60 * u, 8 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = '#a3361f';
+  ctx.lineWidth = 1.5 * u;
+  ctx.beginPath();
+  ctx.moveTo(26 * u, -60 * u);
+  const needle = -Math.PI * 0.85 + pct * Math.PI * 0.7;
+  ctx.lineTo(26 * u + Math.cos(needle) * 6 * u, -60 * u + Math.sin(needle) * 6 * u);
+  ctx.stroke();
+
+  // Copper steam pipe across the lower cab, with joints.
+  ctx.strokeStyle = '#b8642f';
+  ctx.lineWidth = 3.5 * u;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-40 * u, -36 * u); ctx.lineTo(40 * u, -36 * u);
+  ctx.stroke();
+  ctx.fillStyle = '#d98a4f';
+  for (const x of [-30, 0, 30]) {
+    ctx.beginPath();
+    ctx.arc(x * u, -36 * u, 2.6 * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Curved roof with an overhang, and two lamps on its corners.
+  ctx.fillStyle = '#163029';
+  ctx.beginPath();
+  ctx.moveTo(-49 * u, -102 * u);
+  ctx.quadraticCurveTo(0, -126 * u, 49 * u, -102 * u);
+  ctx.lineTo(49 * u, -98 * u);
+  ctx.lineTo(-49 * u, -98 * u);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#c9a04a';
+  ctx.lineWidth = 1.8 * u;
+  ctx.stroke();
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = '#c9a04a';
+    ctx.fillRect(side * 40 * u - 4 * u, -112 * u, 8 * u, 9 * u);
+    ctx.fillStyle = '#ffd27a';
+    ctx.beginPath();
+    ctx.arc(side * 40 * u, -107.5 * u, 2.6 * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
-function stepSmoke(dt) {
+// Smoke from the chimney rises, spreads and drifts back over the train.
+function stepSmoke(dt, w, h) {
+  const { cx, by, u } = trainFrame(w, h);
   const pct = run.speed / run.cfg.maxSpeed;
-  // Smoke streams up and back over the cab, so it rises fast, spreads, and is gone before it hides the track.
-  if (!run.paused && Math.random() < dt * (4 + 6 * pct)) run.smoke.push({ x: rand(-0.005, 0.005), y: 0, vx: rand(-0.03, 0.03), r: 0.009, a: 0.55 });
+  if (!run.paused && Math.random() < dt * (5 + 8 * pct)) run.smoke.push({ x: rand(-2, 2), y: 0, vx: rand(-8, 8), r: 5, a: 0.7 });
   for (const p of run.smoke) {
-    p.y += dt * (0.35 + 0.5 * pct);
+    p.y += dt * (35 + 45 * pct);
     p.x += dt * p.vx;
-    p.r += dt * 0.05;
-    p.a -= dt * 2;
+    p.r += dt * 12;
+    p.a -= dt * 1.6;
   }
   run.smoke = run.smoke.filter((p) => p.a > 0);
+  for (const p of run.smoke) {
+    ctx.fillStyle = `rgba(236, 236, 232, ${p.a})`;
+    ctx.beginPath();
+    ctx.arc(cx + p.x * u, by - 141 * u - p.y * u, p.r * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function render(dt) {
@@ -479,9 +672,9 @@ function render(dt) {
   if (run.shake > 0 && !calm) ctx.translate((Math.random() - 0.5) * run.shake * w * 0.015, (Math.random() - 0.5) * run.shake * h * 0.015);
   drawSky(w, h);
   drawTrack(w, h);
+  drawTrain(w, h);
+  stepSmoke(dt, w, h);
   if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
-  stepSmoke(dt);
-  drawCab(w, h);
   drawMirror(w, h);
   ctx.restore();
 }
