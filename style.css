@@ -447,3 +447,22 @@ kbd {
   .speedo svg { width: 108px; height: 108px; }
   .glass { min-width: 6.5em; padding: 4px 10px; }
 }
+
+/* Glass over the moving scene: the loss screen, the pause menu, the Pause button and the steering buttons.
+   Same smoked tint as the dashboard panels; light text passes 4.5:1 over every part of the scene. */
+.over, .panel, .hud-button, .steer button {
+  color: var(--face);
+  background: rgba(28, 22, 36, 0.62);
+  border: 1px solid rgba(248, 242, 228, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.over { border-radius: 8px; }
+.over::backdrop { background: rgba(20, 16, 28, 0.3); }
+.overlay { background: rgba(20, 16, 28, 0.3); }
+.over .gauge-label { color: var(--face); }
+.over .quiet, .panel .quiet { color: var(--face); background: transparent; border-color: rgba(248, 242, 228, 0.55); }
+.over .quiet:hover, .panel .quiet:hover, .hud-button:hover { border-color: var(--face); background: rgba(28, 22, 36, 0.8); }
+.steer button:active { background: rgba(28, 22, 36, 0.85); }
+/* The ink focus ring would vanish on dark glass, so these use a light one. */
+.over :focus-visible, .panel :focus-visible, .hud-button:focus-visible, .steer button:focus-visible { outline-color: var(--face); }
