@@ -170,7 +170,7 @@ function update(dt) {
   if (run.nextFault <= 0) startRepair();
 }
 
-// While a fault is open the world stops, but the monster keeps coming: using the whole timer costs half the gap.
+// While a fault is open everything stops, the monster included. Running out of time costs speed, not distance.
 async function startRepair() {
   const { cfg } = run;
   run.paused = 'repair';
@@ -178,7 +178,7 @@ async function startRepair() {
   announce('Engine fault. Fix the signal circuit before the timer runs out.');
   const plate = cfg.plates[Math.floor(Math.random() * cfg.plates.length)];
   const ok = await Workshop.repair(plate, cfg.repair);
-  if (ok === null || run.over) return;
+  if (run.over) return;
   run.paused = null;
   run.nextFault = rand(...cfg.fault);
   last = performance.now();
@@ -188,20 +188,10 @@ async function startRepair() {
     announce('Engine fixed. Back to full steam.');
   } else {
     run.speed = cfg.maxSpeed * 0.2;
-    run.gap -= 8;
     shout('Out of time. The engine is crawling!', 2.4);
     announce('The repair ran out of time. The train slowed to a crawl.');
-    if (run.gap <= 0) finish();
   }
   canvas.focus();
-}
-
-function updateRepair(dt) {
-  run.gap -= (GAP_MAX * 0.5 / run.cfg.repair) * dt;
-  if (run.gap <= 0) {
-    Workshop.cancel();
-    finish();
-  }
 }
 
 // ---- Drawing ---------------------------------------------------------------
@@ -232,11 +222,11 @@ const SKYLINE = (() => {
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const out = [];
   for (let x = 0; x < 1; ) {
-    const factory = rnd() < 0.4;
+    const factory = rnd() < 0.12; // mostly city towers, with the odd factory
     const width = factory ? 0.05 + rnd() * 0.05 : 0.015 + rnd() * 0.025;
     const height = factory ? 0.025 + rnd() * 0.02 : 0.04 + rnd() * 0.08;
     const lights = Array.from({ length: 12 }, () => rnd() < 0.35);
-    const stacks = factory ? Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => [0.15 + rnd() * 0.7, 0.05 + rnd() * 0.05]) : [];
+    const stacks = factory ? Array.from({ length: 1 + Math.floor(rnd() * 2) }, () => [0.15 + rnd() * 0.7, 0.05 + rnd() * 0.05]) : [];
     out.push({ x, width, height, factory, lights, stacks });
     x += width + rnd() * 0.012;
   }
@@ -773,7 +763,6 @@ function frame(t) {
   const dt = clamp((t - last) / 1000 || 0, 0, 0.05);
   last = t;
   if (!run.paused) update(dt);
-  else if (run.paused === 'repair') updateRepair(dt);
   if (run.over) return;
   render(run.paused === 'menu' ? 0 : dt);
   run.hud += dt;

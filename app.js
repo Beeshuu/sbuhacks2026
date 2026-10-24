@@ -391,7 +391,7 @@ function endRepair(ok) {
 }
 
 const Workshop = {
-  // Resolves true when the circuit is fixed in time, false when the clock runs out, null when cancelled.
+  // Resolves true when the circuit is fixed in time, false when the clock runs out.
   repair(plate, seconds) {
     return new Promise((resolve) => {
       $('repair-slot').append($('workshop'));
@@ -409,13 +409,6 @@ const Workshop = {
       $('repair').showModal();
       say('Engine fault. Fit the right signal boxes, then run the test cycle.');
     });
-  },
-  cancel() {
-    if (!state.repair) return;
-    const { resolve } = state.repair;
-    state.repair.resolve = () => {};
-    endRepair(false);
-    resolve(null);
   },
 };
 // A fault cannot be dismissed with Escape; Escape still drops a picked box.
