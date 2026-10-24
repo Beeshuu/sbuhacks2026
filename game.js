@@ -524,7 +524,9 @@ function drawMonster(cx, baseY, size) {
 }
 
 // The rear-view mirror: an iron frame with brass rivets, a sunset reflection, and the monster growing as it closes in.
-const mirrorWidth = (w) => Math.min(w * 0.26, 260 * (canvas.width / canvas.clientWidth));
+// Canvas pixels per CSS pixel; falls back to 1 when the page has no width (a hidden or collapsed tab).
+const pixelRatio = () => canvas.width / canvas.clientWidth || 1;
+const mirrorWidth = (w) => Math.min(w * 0.26, 260 * pixelRatio());
 
 function drawMirror(w, h) {
   const mw = mirrorWidth(w);
@@ -568,7 +570,7 @@ function drawMirror(w, h) {
   ctx.restore();
 
   // Distance label above the mirror, no panel: light text with a dark outline reads over any sky.
-  const ratio = canvas.width / canvas.clientWidth;
+  const ratio = pixelRatio();
   const gap = Math.max(0, Math.round(run.gap));
   ctx.save();
   ctx.font = `600 ${18 * ratio}px 'Source Serif 4', Georgia, serif`;
@@ -587,7 +589,7 @@ function drawMirror(w, h) {
 // The mirror goes at the top of the screen unless a HUD group sits in its column (as on narrow
 // screens), in which case it drops below that group. Room is kept above it for the distance label.
 function placeMirror() {
-  const ratio = canvas.width / canvas.clientWidth;
+  const ratio = pixelRatio();
   const half = mirrorWidth(canvas.width) / ratio / 2 + 12;
   const left = canvas.clientWidth / 2 - half;
   const right = canvas.clientWidth / 2 + half;

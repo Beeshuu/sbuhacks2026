@@ -466,3 +466,6 @@ kbd {
 .steer button:active { background: rgba(28, 22, 36, 0.85); }
 /* The ink focus ring would vanish on dark glass, so these use a light one. */
 .over :focus-visible, .panel :focus-visible, .hud-button:focus-visible, .steer button:focus-visible { outline-color: var(--face); }
+/* The pause menu reads like the loss screen: everything centred. */
+.panel { text-align: center; }
+.panel .menu-actions { justify-content: center; }
