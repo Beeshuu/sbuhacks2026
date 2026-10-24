@@ -14,13 +14,16 @@ const AHEAD = CAM_H * DEPTH; // the train's front sits this far in front of the 
 const LANES = [-0.66, 0, 0.66];
 const GAP_MAX = 120; // metres: the furthest the monster falls behind
 const HIT_RANGE = 0.42; // obstacle half-width plus train half-width, in track half-widths
+const FAULT_EVERY = [750, 1500]; // metres between engine faults, on every difficulty
+const FAULT_WARN = 200; // metres of warning before a fault
+const COUNTDOWN = 3; // seconds before the train moves again after a repair
 
 // Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
 // at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
 const MODES = {
-  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, pull: 0.15, fault: [38, 55], repair: 40, plates: [0, 1, 2, 3] },
-  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, pull: 0.12, fault: [28, 42], repair: 32, plates: [2, 3, 4, 5, 6] },
-  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, pull: 0.1, fault: [20, 32], repair: 26, plates: [5, 6, 7, 8, 9, 10] },
+  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
+  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
+  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
 };
 
 const C = { ink: '#2b2118', ink2: '#5a4630', brass: '#8a6420', face: '#f8f2e4', plate: '#e8dcc0', paper: '#f1e9d6', rule: '#cdb98d' };
@@ -53,7 +56,7 @@ function newRun(mode, category) {
     mode, cfg, category, bag: [],
     z: 0, x: 0, speed: cfg.maxSpeed * 0.5, gap: 60, time: 0,
     segs: new Array(RING), written: 0, plan: [], lastObstacle: 0,
-    nextFault: rand(...cfg.fault), repairs: 0, hits: 0,
+    faultAt: rand(...FAULT_EVERY), warned: false, countdown: 0, resume: '', turn: 0, repairs: 0, hits: 0,
     paused: null, over: false, shake: 0, callout: null, smoke: [], hills: 0, hud: 0,
   };
   fillTrack();
@@ -157,17 +160,35 @@ function update(dt) {
 
   if (off) say('Off the track! Steer back.');
   else if (Math.abs(seg.curve) > 0.5 && Math.abs(run.x) > 0.75 && run.x * seg.curve < 0) say(`Steer ${seg.curve > 0 ? 'right' : 'left'}!`);
-  else if (Math.abs(seg.curve) < 0.3) {
-    for (let k = 10; k < 70; k++) {
-      const c = segAt(after + k).curve;
-      if (Math.abs(c) > 0.6) { say(`Bend ${c > 0 ? 'right' : 'left'} in ${k} m`); break; }
-    }
+  run.turn = 0;
+  for (let k = 0; k < 70 && !run.turn; k++) {
+    const c = segAt(after + k).curve;
+    if (Math.abs(c) > (k ? 0.6 : 0.5)) run.turn = Math.sign(c);
   }
   if (run.gap < 20 && Math.floor(run.time * 2) % 4 === 0) say('It\'s right behind you!', 0.4);
 
   run.shake = Math.max(0, run.shake - dt * 2.5);
-  run.nextFault -= dt;
-  if (run.nextFault <= 0) startRepair();
+  const metres = run.z / SEG;
+  if (!run.warned && run.faultAt - metres < FAULT_WARN) {
+    run.warned = true;
+    shout('Engine trouble ahead! Get ready.', 2.2);
+    announce('Engine trouble ahead. A fault is coming up.');
+  }
+  if (metres >= run.faultAt) startRepair();
+}
+
+// After a repair the train waits for a short countdown; the monster waits too.
+function tickCountdown(dt) {
+  const shown = Math.ceil(run.countdown);
+  run.countdown -= dt;
+  if (run.countdown <= 0) {
+    run.paused = null;
+    shout(run.resume, 1.6);
+    hud(); // swap the last number for the message right away, not on the next HUD tick
+    canvas.focus();
+  } else if (Math.ceil(run.countdown) !== shown) {
+    announce(String(Math.ceil(run.countdown)));
+  }
 }
 
 // While a fault is open everything stops, the monster included. Running out of time costs speed, not distance.
@@ -180,18 +201,20 @@ async function startRepair() {
   const plate = cfg.plates[Math.floor(Math.random() * cfg.plates.length)];
   const ok = kind === 'coding' ? await Quiz.repair(nextQuestion(), cfg.repair) : await Workshop.repair(plate, cfg.repair);
   if (run.over) return;
-  run.paused = null;
-  run.nextFault = rand(...cfg.fault);
+  run.faultAt = run.z / SEG + rand(...FAULT_EVERY);
+  run.warned = false;
   last = performance.now();
   if (ok) {
     run.repairs++;
-    shout('Engine fixed. Full steam!');
-    announce('Engine fixed. Back to full steam.');
+    run.resume = 'Full steam!';
+    announce(`Engine fixed. Moving again in ${COUNTDOWN}.`);
   } else {
     run.speed = cfg.maxSpeed * 0.2;
-    shout('Out of time. The engine is crawling!', 2.4);
-    announce('The repair ran out of time. The train slowed to a crawl.');
+    run.resume = 'The engine is crawling. Get the speed back up!';
+    announce(`Out of time. The train will crawl. Moving again in ${COUNTDOWN}.`);
   }
+  run.countdown = COUNTDOWN;
+  run.paused = 'countdown';
   canvas.focus();
 }
 
@@ -761,8 +784,17 @@ function hud() {
   el('hud-speed').textContent = `${Math.round((run.speed / SEG) * 3.6)} km/h`;
   el('hud-gap').textContent = `${Math.max(0, Math.round(run.gap))} m behind`;
   el('hud-meter').style.width = `${clamp(run.gap / GAP_MAX, 0, 1) * 100}%`;
-  const c = run.callout && run.callout.until > run.time ? run.callout.text : '';
+  const counting = run.paused === 'countdown';
+  const c = counting ? String(Math.ceil(run.countdown)) : run.callout && run.callout.until > run.time ? run.callout.text : '';
   if (el('callout').textContent !== c) el('callout').textContent = c;
+  el('callout').classList.toggle('count', counting);
+  const sign = el('turn-sign');
+  sign.hidden = !run.turn || !!run.paused;
+  if (run.turn) {
+    sign.dataset.dir = run.turn > 0 ? 'right' : 'left';
+    el('turn-text').textContent = run.turn > 0 ? 'Bend right' : 'Bend left';
+  }
+  el('hud-fault').hidden = !run.warned || !!run.paused;
 }
 
 function frame(t) {
@@ -770,6 +802,7 @@ function frame(t) {
   const dt = clamp((t - last) / 1000 || 0, 0, 0.05);
   last = t;
   if (!run.paused) update(dt);
+  else if (run.paused === 'countdown') tickCountdown(dt);
   if (run.over) return;
   render(run.paused === 'menu' ? 0 : dt);
   run.hud += dt;
@@ -823,8 +856,6 @@ function startRun() {
   show('drive');
   resize();
   el('paused').hidden = true;
-  el('record-note').textContent = '';
-  el('record').hidden = false;
   announce(`${run.cfg.label} run started. Steer with the arrow keys.`);
   shout('Full steam ahead!', 2);
   canvas.focus();
@@ -841,16 +872,13 @@ function finish() {
   const best = loadBest();
   const record = metres > (best[run.mode] || 0);
   if (record) { best[run.mode] = metres; saveBest(best); }
-  const top = best[run.mode] || 0;
-  run.metres = metres;
-  el('over-stats').textContent = `${run.cfg.label}: you drove ${metres.toLocaleString()} m, fixed ${run.repairs} engine ${run.repairs === 1 ? 'fault' : 'faults'}, and hit ${run.hits} ${run.hits === 1 ? 'obstacle' : 'obstacles'}.`;
-  el('over-best').textContent = record ? 'That\'s your best distance on this difficulty.' : `Your best on ${run.cfg.label}: ${top.toLocaleString()} m.`;
+  el('over-distance').textContent = `${metres.toLocaleString()} m`;
   announce(`The monster caught the train after ${metres} metres.`);
   el('over').showModal();
 }
 
 function pause(on) {
-  if (!run || run.over || run.paused === 'repair') return;
+  if (!run || run.over || run.paused === 'repair' || run.paused === 'countdown') return;
   run.paused = on ? 'menu' : null;
   el('paused').hidden = !on;
   keys.left = keys.right = false;
@@ -905,10 +933,16 @@ const link = (href, text) => Object.assign(document.createElement('a'), { href, 
 
 el('record').addEventListener('click', async () => {
   const note = el('record-note');
-  note.textContent = 'Waiting for Phantom. Approve the transaction there.';
+  const mode = selectedMode();
+  const best = loadBest()[mode];
+  if (!best) {
+    note.textContent = `Finish a run on ${MODES[mode].label} first, then record it here.`;
+    return;
+  }
+  note.textContent = `Recording your best ${MODES[mode].label} run (${best.toLocaleString()} m). Approve the transaction in Phantom.`;
   el('record').hidden = true;
   try {
-    const sig = await Chain.record(run.mode, run.metres);
+    const sig = await Chain.record(mode, best);
     note.replaceChildren('Recorded on the Solana devnet. ', link(Chain.explorer(sig), 'View the transaction on Solana Explorer'));
   } catch (err) {
     note.textContent = Chain.explain(err);

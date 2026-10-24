@@ -41,7 +41,7 @@
             <label class="mode">
               <input type="radio" name="difficulty" value="hard">
               <span class="mode-name">Hard</span>
-              <span class="mode-text">Tight bends, crowded tracks, frequent faults, 26 seconds for each repair, the hardest circuits.</span>
+              <span class="mode-text">Tight bends, crowded tracks, a relentless monster, 26 seconds for each repair, the hardest questions.</span>
               <span class="mode-best" id="best-hard"></span>
             </label>
           </fieldset>
@@ -71,8 +71,12 @@
 
         <section aria-labelledby="chain-title" class="chain">
           <h2 id="chain-title">Devnet leaderboard</h2>
-          <p class="hint">Finished runs can be recorded on the Solana devnet with a Phantom wallet. This list is read straight from the chain, so every entry links to its transaction.</p>
-          <button type="button" id="board-load" class="quiet">Load the leaderboard</button>
+          <p class="hint">Record your best distance for the selected difficulty on the Solana devnet with a Phantom wallet. Devnet uses free test SOL. The list is read straight from the chain, so every entry links to its transaction.</p>
+          <div class="menu-actions">
+            <button type="button" id="board-load" class="quiet">Load the leaderboard</button>
+            <button type="button" id="record" class="quiet">Record my best run with Phantom</button>
+          </div>
+          <p id="record-note" class="hint" role="status"></p>
           <p id="board-note" class="hint" role="status"></p>
           <ol id="board-list" class="board-list"></ol>
         </section>
@@ -97,10 +101,10 @@
         <section aria-labelledby="brief-rules">
           <h2 id="brief-rules">How to survive</h2>
           <ul class="rules">
-            <li><strong>Bends:</strong> they push the train outward. Steer into a bend as it starts, or you'll run off the track and slow down.</li>
+            <li><strong>Bends:</strong> a sign on the right shows which way the next bend turns. Bends push the train outward, so steer into one as it starts, or you'll run off the track and slow down.</li>
             <li><strong>Obstacles:</strong> rocks and crates block the tracks. Move onto a clear track.</li>
             <li><strong>The monster:</strong> it chases from behind; watch the mirror at the top. It gains whenever you slow down. If it reaches the train, the run is over.</li>
-            <li><strong>Engine faults:</strong> <span id="brief-fault"></span> The monster waits while you work, but if the timer runs out the engine crawls.</li>
+            <li><strong>Engine faults:</strong> one comes every 750 to 1,500 m, and an "Engine trouble ahead" notice warns you first. <span id="brief-fault"></span> The monster waits while you work, but if the timer runs out the engine crawls. A 3-second countdown follows every repair.</li>
           </ul>
         </section>
       </div>
@@ -118,6 +122,7 @@
       <div class="hud-group">
         <p class="gauge"><span class="gauge-label">Distance</span> <span id="hud-distance">0 m</span></p>
         <p class="gauge"><span class="gauge-label">Speed</span> <span id="hud-speed">0 km/h</span></p>
+        <p id="hud-fault" class="gauge notice" hidden>Engine trouble ahead</p>
       </div>
       <div class="hud-group">
         <div class="gauge">
@@ -128,6 +133,10 @@
       </div>
     </div>
     <p id="callout" class="callout" aria-hidden="true"></p>
+    <div id="turn-sign" class="turn-sign" aria-hidden="true" hidden>
+      <svg viewBox="0 0 48 48"><path d="M32 42 V24 a10 10 0 0 0 -10 -10 H12" /><path d="M19 6 L10 14 L19 22" /></svg>
+      <span id="turn-text">Bend left</span>
+    </div>
     <p id="drive-live" class="sr-only" role="status" aria-live="assertive"></p>
     <div class="steer">
       <button type="button" id="steer-left" aria-label="Steer left">◀</button>
@@ -223,19 +232,12 @@
 
   <!-- End of a run -->
   <dialog id="over" class="over" aria-labelledby="over-title">
-    <h2 id="over-title">The monster caught the train</h2>
-    <p id="over-stats"></p>
-    <p id="over-best" class="hint"></p>
+    <h2 id="over-title">You lost!</h2>
+    <p class="over-distance"><span class="gauge-label">Distance</span> <span id="over-distance">0 m</span></p>
     <div class="menu-actions">
-      <button type="button" id="again" class="run">Run again</button>
-      <button type="button" id="to-menu" class="quiet">Main menu</button>
+      <button type="button" id="again" class="run">Retry</button>
+      <button type="button" id="to-menu" class="quiet">Menu</button>
     </div>
-    <section class="chain" aria-labelledby="record-title">
-      <h3 id="record-title">Record this run on Solana</h3>
-      <p class="hint">Sign one devnet transaction in Phantom to put this distance on the shared leaderboard. Devnet uses free test SOL, so it costs nothing real.</p>
-      <button type="button" id="record" class="quiet">Record with Phantom</button>
-      <p id="record-note" class="hint" role="status"></p>
-    </section>
   </dialog>
 
   <script src="logic.js"></script>

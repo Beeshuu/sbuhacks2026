@@ -235,7 +235,6 @@ h3 { font-family: var(--display); font-weight: 400; font-size: 1.4rem; margin: 0
 .mode-text, .mode-best { grid-column: 2; }
 .mode-best { color: var(--ink-2); font-size: 0.95rem; }
 .chain { margin-top: 0; }
-.over .chain { margin-top: 24px; padding-top: 16px; border-top: 4px double var(--brass); }
 .board-list { margin: 8px 0 0; padding-left: 1.4em; font-variant-numeric: tabular-nums; }
 .board-list li + li { margin-top: 4px; }
 a { color: var(--ink); text-underline-offset: 3px; }
@@ -330,7 +329,7 @@ dialog::backdrop { background: rgba(43, 33, 24, 0.6); }
 .timer { font-family: var(--display); font-size: 2rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .timebar { display: block; height: 10px; margin: 10px 0 4px; background: var(--plate); border: 1px solid var(--brass); }
 .timebar span { display: block; height: 100%; background: var(--ink); }
-.over { width: min(560px, calc(100% - 32px)); }
+.over { width: min(420px, calc(100% - 32px)); }
 .over h2 { margin: 0 0 8px; font-size: 2rem; }
 
 /* ---- Question categories, briefing, coding faults ------------------------- */
@@ -392,4 +391,35 @@ kbd {
 @media (max-width: 520px) {
   .choices { grid-template-columns: minmax(0, 1fr); }
   .quiz pre { padding: 12px; font-size: 0.85rem; }
+}
+
+/* ---- Run notices ------------------------------------------------------------ */
+.callout.count { padding: 4px 28px; font-size: clamp(3.5rem, 12vw, 6.5rem); line-height: 1.1; }
+.gauge.notice { background: var(--ink); color: var(--face); border-color: var(--ink); font-weight: 600; align-self: center; }
+.turn-sign {
+  position: absolute;
+  top: 46%;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 14px 8px;
+  background: var(--face);
+  border: 3px solid var(--ink);
+  border-radius: 6px;
+  font-weight: 600;
+  pointer-events: none;
+}
+.turn-sign svg { width: 52px; height: 52px; fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.turn-sign[data-dir='right'] svg { transform: scaleX(-1); }
+.over { text-align: center; }
+.over h2 { font-size: 2.6rem; }
+.over-distance { margin: 0 0 4px; font-family: var(--display); font-size: 2.4rem; font-variant-numeric: tabular-nums; }
+.over-distance .gauge-label { font-family: 'Source Serif 4', Georgia, serif; font-size: 0.9rem; }
+.over .menu-actions { justify-content: center; }
+/* On narrow screens the centre message can wrap into the sign's spot, so the sign sits above the right steering button. */
+@media (max-width: 600px) {
+  .turn-sign { top: auto; bottom: 106px; right: 12px; padding: 6px 10px 5px; font-size: 0.9rem; }
+  .turn-sign svg { width: 40px; height: 40px; }
 }
