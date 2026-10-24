@@ -506,7 +506,8 @@ kbd {
 /* ---- Live scene behind the screens ------------------------------------------ */
 .scene { position: fixed; inset: 0; z-index: 0; }
 .screen { position: relative; z-index: 1; }
-.drive { background: transparent; }
+/* The run's HUD layer must stay full-screen; the generic .screen rule above would collapse it to zero height. */
+.screen.drive { position: fixed; inset: 0; background: transparent; }
 /* Menu and briefing float as paper panels over the demo run. */
 #menu, #briefing { min-height: 100vh; padding: 28px 16px; }
 #menu > .wrap, #briefing > .wrap {
