@@ -1,4 +1,4 @@
-# Steel junction: design direction
+# Logical steam: design direction
 
 Chosen by the team: option B, "Instrument" (polished Victorian brass), from the mockup Claude proposed.
 
