@@ -266,8 +266,6 @@ a { color: var(--ink); text-underline-offset: 3px; }
   line-height: 1.35;
 }
 .gauge-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--ink-2); }
-.meter { display: block; width: 120px; height: 6px; margin: 4px 0 2px; background: var(--plate); border: 1px solid var(--brass); }
-.meter span { display: block; height: 100%; background: var(--ink); }
 .hud-button { pointer-events: auto; background: var(--face); }
 .callout {
   position: absolute;

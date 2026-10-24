@@ -48,7 +48,8 @@ const keys = { left: false, right: false };
 let run = null;
 let raf = 0;
 let last = 0;
-let mirrorTop = 0; // canvas pixels; the mirror hangs just below the HUD, which wraps on narrow screens
+let mirrorTop = 0; // canvas pixels: the top of the mirror glass (see placeMirror)
+const MIRROR_LABEL = 30; // CSS pixels kept above the mirror for its distance label
 
 // ---- Track generation -------------------------------------------------------
 
@@ -523,8 +524,10 @@ function drawMonster(cx, baseY, size) {
 }
 
 // The rear-view mirror: an iron frame with brass rivets, a sunset reflection, and the monster growing as it closes in.
+const mirrorWidth = (w) => Math.min(w * 0.26, 260 * (canvas.width / canvas.clientWidth));
+
 function drawMirror(w, h) {
-  const mw = Math.min(w * 0.26, 260 * (canvas.width / canvas.clientWidth));
+  const mw = mirrorWidth(w);
   const mh = mw * 0.42;
   const mx = w / 2 - mw / 2;
   const my = mirrorTop;
@@ -563,6 +566,37 @@ function drawMirror(w, h) {
   const near = 1 - clamp(run.gap / GAP_MAX, 0, 1);
   drawMonster(mx + mw / 2, my + mh * (0.55 + near * 0.45), mh * (0.18 + near * 0.95));
   ctx.restore();
+
+  // Distance label above the mirror, no panel: light text with a dark outline reads over any sky.
+  const ratio = canvas.width / canvas.clientWidth;
+  const gap = Math.max(0, Math.round(run.gap));
+  ctx.save();
+  ctx.font = `600 ${18 * ratio}px 'Source Serif 4', Georgia, serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 4 * ratio;
+  ctx.strokeStyle = 'rgba(28, 22, 36, 0.85)';
+  ctx.fillStyle = gap < 30 ? '#ffcf5a' : C.face; // amber once the monster is close
+  const y = my - rim - 6 * ratio;
+  ctx.strokeText(`${gap} m away`, w / 2, y);
+  ctx.fillText(`${gap} m away`, w / 2, y);
+  ctx.restore();
+}
+
+// The mirror goes at the top of the screen unless a HUD group sits in its column (as on narrow
+// screens), in which case it drops below that group. Room is kept above it for the distance label.
+function placeMirror() {
+  const ratio = canvas.width / canvas.clientWidth;
+  const half = mirrorWidth(canvas.width) / ratio / 2 + 12;
+  const left = canvas.clientWidth / 2 - half;
+  const right = canvas.clientWidth / 2 + half;
+  let top = 8;
+  for (const group of document.querySelectorAll('.hud-group')) {
+    const r = group.getBoundingClientRect();
+    if (r.right > left && r.left < right) top = Math.max(top, r.bottom + 6);
+  }
+  mirrorTop = (top + MIRROR_LABEL) * ratio;
 }
 
 function drawClaws(w, h, t) {
@@ -831,8 +865,7 @@ function hud() {
   const mph = run.speed * MPH_PER_UNIT;
   el('hud-speed').textContent = `${Math.round(mph)} mph`;
   el('speedo-needle').setAttribute('transform', `rotate(${dialAngle(mph)})`);
-  el('hud-gap').textContent = `${Math.max(0, Math.round(run.gap))} m behind`;
-  el('hud-meter').style.width = `${clamp(run.gap / GAP_MAX, 0, 1) * 100}%`;
+  el('hud-gap').textContent = `Monster ${Math.max(0, Math.round(run.gap))} m behind`;
   const counting = run.paused === 'countdown';
   const c = counting ? String(Math.ceil(run.countdown)) : run.callout && run.callout.until > run.time ? run.callout.text : '';
   if (el('callout').textContent !== c) el('callout').textContent = c;
@@ -844,8 +877,7 @@ function hud() {
     el('turn-text').textContent = run.turn > 0 ? 'Bend right' : 'Bend left';
   }
   el('hud-fault').hidden = !run.warned || !!run.paused;
-  // The HUD gains a row on narrow screens when the fault notice shows, so the mirror follows its bottom edge.
-  mirrorTop = (document.querySelector('.hud').getBoundingClientRect().bottom + 10) * (canvas.width / canvas.clientWidth);
+  placeMirror(); // the HUD can gain a row when the fault notice shows
 }
 
 function frame(t) {
@@ -865,7 +897,7 @@ function resize() {
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(canvas.clientWidth * ratio);
   canvas.height = Math.round(canvas.clientHeight * ratio);
-  mirrorTop = (document.querySelector('.hud').getBoundingClientRect().bottom + 10) * ratio;
+  placeMirror();
 }
 
 function show(screen) {
