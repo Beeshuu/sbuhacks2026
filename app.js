@@ -49,37 +49,34 @@ function pressable(g, fn) {
 // Board geometry: tracks leave a node's right edge and enter the next node's left edge.
 const outPort = (n) => [n.x + (n.kind === 'boiler' ? R : SLOT_W / 2), n.y];
 const inPort = (n, i, count) =>
-  n.kind === 'piston' ? [n.x - 50, n.y] : [n.x - SLOT_W / 2, n.y + (count === 2 ? (i ? 16 : -16) : 0)];
+  n.kind === 'piston' ? [n.x - 62, n.y] : [n.x - SLOT_W / 2, n.y + (count === 2 ? (i ? 16 : -16) : 0)];
 const pathFor = ([x1, y1], [x2, y2], turnX) => {
   const mx = turnX ?? Math.round((x1 + x2) / 2);
   return `M${x1} ${y1} H${mx} V${y2} H${x2}`;
 };
 
-// A steam engine facing right, toward its track. Drawn back to front so nearer parts overlap.
-function drawEngine(g, x, y) {
-  // Smoke drifts up and back from the chimney, as if the engine is moving.
-  [[x + 9, y - 44, 6], [x + 16, y - 38, 5], [x + 22, y - 33, 4]].forEach(([cx, cy, r]) => svg('circle', { cx, cy, r, class: 'puff' }, g));
-  svg('rect', { x: x - 36, y: y - 22, width: 22, height: 30, class: 'loco' }, g); // cab
-  svg('rect', { x: x - 31, y: y - 17, width: 11, height: 9, class: 'window' }, g);
-  svg('rect', { x: x - 40, y: y - 27, width: 30, height: 5, rx: 1, class: 'iron' }, g); // cab roof
-  svg('path', { d: `M${x - 2} ${y - 11} a6 6 0 0 1 12 0 z`, class: 'loco' }, g); // steam dome
-  svg('path', { d: `M${x + 19} ${y - 12} V${y - 24} H${x + 17} V${y - 29} H${x + 29} V${y - 24} H${x + 27} V${y - 12} z`, class: 'iron' }, g); // chimney
-  svg('rect', { x: x - 15, y: y - 12, width: 38, height: 18, rx: 2, class: 'loco' }, g); // boiler
-  [-6, 6, 14].forEach((dx) => svg('line', { x1: x + dx, y1: y - 12, x2: x + dx, y2: y + 6, class: 'band' }, g));
-  svg('rect', { x: x + 22, y: y - 14, width: 9, height: 22, rx: 2, class: 'iron' }, g); // smokebox
-  svg('rect', { x: x - 39, y: y + 6, width: 72, height: 4, class: 'frame' }, g); // running board
-  svg('path', { d: `M${x + 30} ${y + 10} L${x + 39} ${y + 25} H${x + 27} z`, class: 'iron' }, g); // cowcatcher
-  // Two spoked driving wheels joined by a coupling rod, and a small leading wheel. All sit on y + 26.
-  [[x - 24, 8], [x - 5, 8], [x + 18, 5]].forEach(([cx, r]) => {
-    const cy = y + 26 - r;
-    svg('circle', { cx, cy, r, class: 'wheel' }, g);
-    [0, 45, 90, 135].forEach((deg) => {
-      const dx = Math.cos((deg * Math.PI) / 180) * (r - 1.5);
-      const dy = Math.sin((deg * Math.PI) / 180) * (r - 1.5);
-      svg('line', { x1: cx - dx, y1: cy - dy, x2: cx + dx, y2: cy + dy, class: 'spoke' }, g);
-    });
+// A steampunk boat engine (the inputs): a riveted boiler with a gauge and a stack, a piston, and a
+// flywheel driven by a rod. When the engine is ready, smoke puffs and the flywheel spins (see style.css).
+function drawBoatEngine(g, x, y) {
+  [[x - 20, y - 36, 4], [x - 14, y - 42, 5], [x - 6, y - 47, 6]].forEach(([cx, cy, r]) => svg('circle', { cx, cy, r, class: 'puff' }, g));
+  svg('rect', { x: x - 38, y: y + 18, width: 70, height: 5, class: 'frame' }, g); // base plate
+  svg('rect', { x: x - 25, y: y - 30, width: 7, height: 18, class: 'iron' }, g); // stack
+  svg('rect', { x: x - 27, y: y - 32, width: 11, height: 3, class: 'iron' }, g);
+  svg('rect', { x: x - 36, y: y - 14, width: 30, height: 32, rx: 6, class: 'loco' }, g); // boiler
+  [-4, 8].forEach((dy) => svg('line', { x1: x - 36, y1: y + dy, x2: x - 6, y2: y + dy, class: 'band' }, g));
+  svg('circle', { cx: x - 21, cy: y + 2, r: 4, class: 'window' }, g); // pressure gauge
+  svg('line', { x1: x - 6, y1: y - 8, x2: x + 3, y2: y - 8, class: 'steam-pipe' }, g);
+  svg('rect', { x: x + 1, y: y - 24, width: 9, height: 22, rx: 1.5, class: 'loco' }, g); // piston cylinder
+  svg('rect', { x: x + 16, y: y + 6, width: 4, height: 12, class: 'frame' }, g); // flywheel stand
+  const wheel = svg('g', { class: 'flywheel' }, g);
+  svg('circle', { cx: x + 18, cy: y + 6, r: 12, class: 'wheel' }, wheel);
+  [0, 45, 90, 135].forEach((deg) => {
+    const dx = Math.cos((deg * Math.PI) / 180) * 10.5;
+    const dy = Math.sin((deg * Math.PI) / 180) * 10.5;
+    svg('line', { x1: x + 18 - dx, y1: y + 6 - dy, x2: x + 18 + dx, y2: y + 6 + dy, class: 'spoke' }, wheel);
   });
-  svg('line', { x1: x - 24, y1: y + 18, x2: x - 5, y2: y + 18, class: 'rod-bar' }, g); // coupling rod
+  svg('circle', { cx: x + 18, cy: y + 6, r: 2, class: 'iron' }, g);
+  svg('line', { x1: x + 5.5, y1: y - 2, x2: x + 25, y2: y + 1, class: 'rod-bar' }, g); // connecting rod
 }
 
 function buildBoard() {
@@ -88,9 +85,9 @@ function buildBoard() {
   board.replaceChildren();
   const big = narrow.matches;
   const [labelDy, stateDy] = big ? [29, 62] : [22, 46];
-  // Fit the viewBox to the pieces: engine smoke and box roofs on top, state labels at the bottom, the departed train on the right.
+  // Fit the viewBox to the pieces: smoke and box roofs on top, state labels at the bottom, the departed steamboat on the right.
   const nodes = Object.values(lv.nodes);
-  const top = Math.min(...nodes.map((n) => n.y)) - 58;
+  const top = Math.min(...nodes.map((n) => n.y)) - 66; // room for the steamboat's smoke
   const bottom = Math.max(...nodes.map((n) => n.y)) + R + stateDy + 10;
   const right = Math.max(...nodes.map((n) => n.x + (n.kind === 'piston' ? 112 : 50)));
   board.setAttribute('viewBox', `0 ${top} ${right} ${bottom - top}`);
@@ -111,7 +108,7 @@ function buildBoard() {
       g.setAttribute('role', 'switch');
       g.setAttribute('aria-label', `Engine ${id}`);
       svg('rect', { x: x - 45, y: y - 56, width: 90, height: 92, rx: 6, class: 'ring' }, g);
-      drawEngine(g, x, y);
+      drawBoatEngine(g, x, y);
       svg('text', { x, y: y + R + labelDy, class: 'label' }, g).textContent = `Engine ${id}`;
       svg('text', { x, y: y + R + stateDy, class: 'state' }, g);
       pressable(g, () => toggleBoiler(id));
@@ -129,21 +126,31 @@ function buildBoard() {
     } else {
       g.setAttribute('class', 'piston');
       g.setAttribute('role', 'img');
-      // The station: a platform and the express (a carriage behind an engine) that pulls away when the line clears.
-      svg('rect', { x: x - 50, y: y + 26, width: 124, height: 5, class: 'frame' }, g);
-      const train = svg('g', { class: 'rod' }, g);
-      svg('rect', { x: x - 48, y: y - 16, width: 32, height: 26, rx: 2, class: 'loco' }, train);
-      svg('rect', { x: x - 50, y: y - 20, width: 36, height: 4, rx: 1, class: 'iron' }, train);
-      [-44, -30].forEach((dx) => svg('rect', { x: x + dx, y: y - 11, width: 10, height: 9, class: 'window' }, train));
-      [-42, -22].forEach((dx) => svg('circle', { cx: x + dx, cy: y + 21, r: 5, class: 'wheel' }, train));
-      drawEngine(train, x + 24, y);
-      svg('text', { x: x + 8, y: y + R + labelDy, class: 'label' }, g).textContent = 'Express';
+      // The dock: a strip of water and a steamboat (side view) that sails off when the signal arrives.
+      svg('rect', { x: x - 62, y: y + 14, width: 146, height: 10, class: 'water' }, g);
+      svg('path', { d: `M${x - 62} ${y + 15} q9 -3 18 0 t18 0 t18 0 t18 0 t18 0 t18 0 t18 0 t18 0`, class: 'water-line' }, g);
+      const boat = svg('g', { class: 'rod' }, g);
+      [[x + 24, y - 46, 4], [x + 18, y - 52, 5], [x + 10, y - 57, 6]].forEach(([cx, cy, r]) => svg('circle', { cx, cy, r, class: 'puff' }, boat));
+      svg('circle', { cx: x - 46, cy: y + 6, r: 11, class: 'paddle' }, boat); // stern paddle wheel
+      [0, 30, 60, 90, 120, 150].forEach((deg) => {
+        const dx = Math.cos((deg * Math.PI) / 180) * 10;
+        const dy = Math.sin((deg * Math.PI) / 180) * 10;
+        svg('line', { x1: x - 46 - dx, y1: y + 6 - dy, x2: x - 46 + dx, y2: y + 6 + dy, class: 'paddle-spoke' }, boat);
+      });
+      svg('rect', { x: x + 20, y: y - 40, width: 8, height: 22, class: 'iron' }, boat); // smokestack
+      svg('rect', { x: x + 19, y: y - 34, width: 10, height: 2.5, class: 'frame' }, boat);
+      svg('rect', { x: x - 31, y: y - 22, width: 50, height: 4, class: 'iron' }, boat); // cabin roof
+      svg('rect', { x: x - 28, y: y - 18, width: 44, height: 18, class: 'loco' }, boat); // cabin
+      [-24, -12, 0].forEach((dx) => svg('rect', { x: x + dx, y: y - 14, width: 8, height: 8, class: 'window' }, boat));
+      svg('path', { d: `M${x - 40} ${y} H${x + 50} L${x + 38} ${y + 18} H${x - 36} Z`, class: 'iron' }, boat); // hull
+      svg('line', { x1: x - 40, y1: y + 1, x2: x + 50, y2: y + 1, class: 'band' }, boat);
+      svg('text', { x: x + 8, y: y + R + labelDy, class: 'label' }, g).textContent = 'Steamboat';
       svg('text', { x: x + 8, y: y + R + stateDy, class: 'state' }, g);
     }
   }
 }
 
-// Redraws tracks, engines, boxes and the express from state. Returns the simulation.
+// Redraws tracks, engines, boxes and the steamboat from state. Returns the simulation.
 function update() {
   const lv = level();
   const sim = simulate(lv, state.boilers, state.valves);
@@ -163,7 +170,7 @@ function update() {
     } else {
       g.classList.toggle('fired', sim.P);
       g.querySelector('.state').textContent = sim.P ? 'departed' : 'waiting';
-      g.setAttribute('aria-label', `Express, ${sim.P ? 'departed' : 'waiting'}`);
+      g.setAttribute('aria-label', `Steamboat, ${sim.P ? 'departed' : 'waiting'}`);
     }
   }
   return sim;
@@ -195,7 +202,7 @@ function renderLedger() {
   $('ledger-note').textContent = state.running
     ? `Testing setting ${state.testing + 1} of ${total}…`
     : !state.rows
-      ? 'Run the test cycle and the inspector fills in what the express actually did.'
+      ? 'Run the test cycle and the inspector fills in what the steamboat actually did.'
       : wrong
         ? `${wrong} of ${total} settings are wrong. Change a box and run the cycle again.`
         : `All ${total} settings match.`;
@@ -261,7 +268,7 @@ function toggleBoiler(id) {
   if (state.running) return busy();
   state.boilers[id] = !state.boilers[id];
   const sim = update();
-  say(`Engine ${id} is ${word(sim[id])}. The express ${sim.P ? 'departs' : 'waits at the platform'}.`);
+  say(`Engine ${id} is ${word(sim[id])}. The steamboat ${sim.P ? 'departs' : 'waits at the dock'}.`);
 }
 
 async function runCycle() {
@@ -301,7 +308,7 @@ async function runCycle() {
   if (bad < 0) return win();
   const b = all[bad];
   const setting = new Intl.ListFormat('en').format(idsOf(lv, 'boiler').map((id) => `${id} ${word(b[id])}`));
-  say(`Not yet. With ${setting}, the order wants the express to ${lv.target(b) ? 'depart' : 'wait'}, but it ${state.rows[bad].got ? 'departed' : 'stayed at the platform'}.`);
+  say(`Not yet. With ${setting}, the order wants the steamboat to ${lv.target(b) ? 'depart' : 'wait'}, but it ${state.rows[bad].got ? 'departed' : 'stayed at the dock'}.`);
 }
 
 function win() {

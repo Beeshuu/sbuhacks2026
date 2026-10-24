@@ -566,3 +566,15 @@ button:active { transform: translateY(1px) scale(0.98); box-shadow: none; }
 @keyframes alert { 50% { background: var(--signal); border-color: var(--signal); } }
 @keyframes alert-bar { to { opacity: 0.55; } }
 @keyframes shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+
+/* Circuit board: boat engines (inputs) and the steamboat at its dock (output) */
+.steam-pipe { stroke: #b8642f; stroke-width: 3; stroke-linecap: round; }
+.water { fill: #7fa9c6; }
+.water-line { fill: none; stroke: #f4fbff; stroke-width: 1.5; }
+.paddle { fill: #7a2418; stroke: var(--brass); stroke-width: 2; }
+.paddle-spoke { stroke: #d9a45a; stroke-width: 1.4; }
+.flywheel { transform-box: fill-box; transform-origin: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .boiler.hot .flywheel { animation: spin 1.4s linear infinite; } /* a running engine visibly turns */
+}
+@keyframes spin { to { transform: rotate(360deg); } }

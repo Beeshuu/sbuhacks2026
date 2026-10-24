@@ -1,5 +1,5 @@
 // Game rules with no DOM, so logic.test.js can run them in Node.
-// Board kinds: 'boiler' is an engine (input), 'slot' takes a signal box, 'piston' is the station (output).
+// Board kinds: 'boiler' is an engine (input), 'slot' takes a signal box, 'piston' is the steamboat at its dock (output).
 
 const PARTS = {
   pipe: { label: 'Track', inputs: 1, run: ([a]) => a },
@@ -21,7 +21,7 @@ const chain = {
 const LEVELS = [
   {
     title: 'Straight through',
-    order: 'Send the express when engine A is ready.',
+    order: 'Send the steamboat when engine A is ready.',
     lesson: { name: 'Plain track', text: 'Plain track passes the signal straight along. Clear in, clear out. Real signal boxes did this kind of logic with iron levers in the 1800s, long before computers.' },
     nodes: { A: { kind: 'boiler', x: 80, y: 150 }, s1: { kind: 'slot', inputs: 1, x: 260, y: 150 }, P: { kind: 'piston', x: 430, y: 150 } },
     wires: [['A', 's1'], ['s1', 'P']],
@@ -30,7 +30,7 @@ const LEVELS = [
   },
   {
     title: 'The inverter',
-    order: 'Send the express when engine A is idle. The line is only free while A stays in the shed.',
+    order: 'Send the steamboat when engine A is idle. The line is only free while A stays in the shed.',
     lesson: { name: 'The NOT box', text: 'A NOT box flips the signal. A clear track in gives a blocked track out, and blocked in gives clear out. In code it is written !a.' },
     nodes: { A: { kind: 'boiler', x: 80, y: 150 }, s1: { kind: 'slot', inputs: 1, x: 260, y: 150 }, P: { kind: 'piston', x: 430, y: 150 } },
     wires: [['A', 's1'], ['s1', 'P']],
@@ -39,7 +39,7 @@ const LEVELS = [
   },
   {
     title: 'Both or nothing',
-    order: 'Send the express only when engines A and B are both ready.',
+    order: 'Send the steamboat only when engines A and B are both ready.',
     lesson: { name: 'The AND box', text: 'An AND box clears the line only when both tracks coming in are clear. One clear track is not enough. In code: a && b.' },
     nodes: { ...pair, s1: { kind: 'slot', inputs: 2, x: 260, y: 150 }, P: { kind: 'piston', x: 430, y: 150 } },
     wires: [['A', 's1'], ['B', 's1'], ['s1', 'P']],
@@ -48,7 +48,7 @@ const LEVELS = [
   },
   {
     title: 'Either will do',
-    order: 'Send the express when engine A or engine B is ready.',
+    order: 'Send the steamboat when engine A or engine B is ready.',
     lesson: { name: 'The OR box', text: 'An OR box clears the line when either track is clear, or both are. It blocks only when both are blocked. In code: a || b.' },
     nodes: { ...pair, s1: { kind: 'slot', inputs: 2, x: 260, y: 150 }, P: { kind: 'piston', x: 430, y: 150 } },
     wires: [['A', 's1'], ['B', 's1'], ['s1', 'P']],
@@ -57,7 +57,7 @@ const LEVELS = [
   },
   {
     title: 'The shunter',
-    order: 'Send the express when engine A is ready, but never while B, the shunter, is ready. A ready shunter is still working the line.',
+    order: 'Send the steamboat when engine A is ready, but never while B, the shunter, is ready. A ready shunter is still working the line.',
     lesson: { name: 'Boxes in a chain', text: 'The signal leaving one box can feed the next. Work backwards from the station: what does the last box need to receive?' },
     nodes: { ...pair, s1: { kind: 'slot', inputs: 1, x: 200, y: 230 }, s2: { kind: 'slot', inputs: 2, x: 330, y: 150 }, P: { kind: 'piston', x: 460, y: 150 } },
     wires: [['A', 's2'], ['B', 's1'], ['s1', 's2'], ['s2', 'P']],
@@ -66,8 +66,8 @@ const LEVELS = [
   },
   {
     title: 'Quiet yard',
-    order: 'Send the express only when both engines are idle.',
-    lesson: { name: 'Two boxes, one idea', text: 'Some orders need two boxes working together. Read the order slowly: the express goes when neither engine is ready.' },
+    order: 'Send the steamboat only when both engines are idle.',
+    lesson: { name: 'Two boxes, one idea', text: 'Some orders need two boxes working together. Read the order slowly: the steamboat goes when neither engine is ready.' },
     nodes: { ...pair, s1: { kind: 'slot', inputs: 2, x: 210, y: 150 }, s2: { kind: 'slot', inputs: 1, x: 330, y: 150 }, P: { kind: 'piston', x: 460, y: 150 } },
     wires: [['A', 's1'], ['B', 's1'], ['s1', 's2'], ['s2', 'P']],
     target: (s) => !s.A && !s.B,
@@ -75,7 +75,7 @@ const LEVELS = [
   },
   {
     title: 'One or the other',
-    order: 'Send the express when exactly one engine is ready. Two ready engines jam the junction.',
+    order: 'Send the steamboat when exactly one engine is ready. Two ready engines jam the junction.',
     lesson: { name: 'The XOR box', text: 'An XOR box clears the line when its two tracks disagree: one clear, one blocked. Two clear tracks keep it blocked. In code: a !== b.' },
     nodes: { ...pair, s1: { kind: 'slot', inputs: 2, x: 260, y: 150 }, P: { kind: 'piston', x: 430, y: 150 } },
     wires: [['A', 's1'], ['B', 's1'], ['s1', 'P']],
@@ -84,7 +84,7 @@ const LEVELS = [
   },
   {
     title: 'Triple header',
-    order: 'Send the express only when all three engines are ready to pull it.',
+    order: 'Send the steamboat only when all three engines are ready to power it.',
     lesson: { name: 'Three engines, two boxes', text: 'A box takes two tracks at most, so three engines need two boxes in a row. The ledger now has eight rows, one for every mix of three engines.' },
     ...chain,
     target: (s) => s.A && s.B && s.C,
@@ -92,7 +92,7 @@ const LEVELS = [
   },
   {
     title: 'Odd one out',
-    order: 'Send the express when an odd number of engines are ready: exactly one, or all three.',
+    order: 'Send the steamboat when an odd number of engines are ready: exactly one, or all three.',
     lesson: { name: 'Chaining XOR', text: 'Every extra clear track flips an XOR answer. Follow the signal one box at a time and count the ready engines.' },
     ...chain,
     target: (s) => (s.A + s.B + s.C) % 2 === 1,
@@ -100,7 +100,7 @@ const LEVELS = [
   },
   {
     title: 'The breakdown crane',
-    order: 'Send the express when engine A or engine B is ready, unless C, the breakdown crane, is ready. When the crane is out, the line is closed.',
+    order: 'Send the steamboat when engine A or engine B is ready, unless C, the breakdown crane, is ready. When the crane is out, the line is closed.',
     lesson: { name: 'Breaking an order apart', text: 'Split the order into pieces. Which part is OR, which part is NOT, and what joins them together?' },
     nodes: { ...trio, s1: { kind: 'slot', inputs: 2, x: 230, y: 138 }, s2: { kind: 'slot', inputs: 1, x: 230, y: 370 }, s3: { kind: 'slot', inputs: 2, x: 370, y: 235 }, P: { kind: 'piston', x: 520, y: 235 } },
     wires: [['A', 's1'], ['B', 's1'], ['C', 's2'], ['s1', 's3'], ['s2', 's3'], ['s3', 'P']],
@@ -109,7 +109,7 @@ const LEVELS = [
   },
   {
     title: 'Majority vote',
-    order: 'Send the express when at least two of the three engines are ready.',
+    order: 'Send the steamboat when at least two of the three engines are ready.',
     lesson: { name: 'Split tracks', text: 'One engine can feed two boxes at once. Trace where every track goes before you choose, then check the ledger row by row.' },
     nodes: {
       ...trio,
