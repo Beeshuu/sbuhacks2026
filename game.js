@@ -14,6 +14,7 @@ const AHEAD = CAM_H * DEPTH; // the boat's bow sits this far in front of the cam
 const LANES = [-0.66, 0, 0.66];
 const GAP_MAX = 120; // metres: the furthest the monster falls behind
 const HIT_RANGE = 0.42; // obstacle half-width plus boat half-width, in river half-widths
+const BANK = 0.74; // furthest the boat's centre can go from mid-river: its paddle boxes then stay on the water
 const FAULT_EVERY = [750, 1500]; // metres between engine faults, on every difficulty
 const FAULT_WARN = 200; // metres of warning before a fault
 const COUNTDOWN = 3; // seconds before the boat moves again after a repair
@@ -26,9 +27,9 @@ const MPH_MAX = 120; // top of the speedometer dial; Hard tops out near 112 mph
 // Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
 // at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
 const MODES = {
-  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.015, mix: { crate: 0.53, rock: 0.25, wave: 0.2, whirlpool: 0.02 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
-  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.022, mix: { crate: 0.46, rock: 0.27, wave: 0.23, whirlpool: 0.04 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
-  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.03, mix: { crate: 0.44, rock: 0.27, wave: 0.23, whirlpool: 0.06 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
+  easy: { label: 'Easy', maxSpeed: 7000, monster: 0.74, curve: 3, obstacles: 0.012, mix: { crate: 0.53, rock: 0.25, wave: 0.2, whirlpool: 0.02 }, pull: 0.15, repair: 40, plates: [0, 1, 2, 3] },
+  medium: { label: 'Medium', maxSpeed: 8500, monster: 0.82, curve: 5, obstacles: 0.018, mix: { crate: 0.46, rock: 0.27, wave: 0.23, whirlpool: 0.04 }, pull: 0.12, repair: 32, plates: [2, 3, 4, 5, 6] },
+  hard: { label: 'Hard', maxSpeed: 10000, monster: 0.88, curve: 7, obstacles: 0.024, mix: { crate: 0.44, rock: 0.27, wave: 0.23, whirlpool: 0.06 }, pull: 0.1, repair: 26, plates: [5, 6, 7, 8, 9, 10] },
 };
 
 const C = { ink: '#2b2118', ink2: '#5a4630', brass: '#8a6420', face: '#f8f2e4', plate: '#e8dcc0', paper: '#f1e9d6', rule: '#cdb98d' };
@@ -187,8 +188,9 @@ function update(dt) {
   if (keys.left) run.x -= turn;
   if (keys.right) run.x += turn;
   run.x -= turn * pct * seg.curve * cfg.pull; // bends push the boat toward the outer bank
-  run.x = clamp(run.x, -1.6, 1.6);
-  const off = Math.abs(run.x) > 1;
+  // The boat can't leave the water; pressed against the bank it scrapes along it and slows down.
+  run.x = clamp(run.x, -BANK, BANK);
+  const off = Math.abs(run.x) >= BANK;
 
   if (off) run.speed = Math.max(max * 0.3, run.speed - max * 1.2 * dt);
   else run.speed = Math.min(max * (run.demo ? 0.75 : 1), run.speed + max * 0.22 * dt);
@@ -232,8 +234,8 @@ function update(dt) {
   run.gap = Math.min(GAP_MAX, run.gap + ((run.speed - chase) / SEG) * dt);
   if (run.gap <= 0) return finish();
 
-  if (off) say('Too close to the bank! Steer back.');
-  else if (Math.abs(seg.curve) > 0.5 && Math.abs(run.x) > 0.75 && run.x * seg.curve < 0) say(`Steer ${seg.curve > 0 ? 'right' : 'left'}!`);
+  if (off) say('Scraping the bank! Steer back.');
+  else if (Math.abs(seg.curve) > 0.5 && Math.abs(run.x) > 0.7 && run.x * seg.curve < 0) say(`Steer ${seg.curve > 0 ? 'right' : 'left'}!`);
   run.turn = 0;
   for (let k = 0; k < 70 && !run.turn; k++) {
     const c = segAt(after + k).curve;
