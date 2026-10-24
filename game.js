@@ -17,6 +17,8 @@ const HIT_RANGE = 0.42; // obstacle half-width plus train half-width, in track h
 const FAULT_EVERY = [750, 1500]; // metres between engine faults, on every difficulty
 const FAULT_WARN = 200; // metres of warning before a fault
 const COUNTDOWN = 3; // seconds before the train moves again after a repair
+const MPH_PER_UNIT = 2.23694 / SEG; // world units per second to miles per hour (1 segment = 1 metre)
+const MPH_MAX = 120; // top of the speedometer dial; Hard tops out near 112 mph
 
 // Every number a player feels comes from here. Keep pull * curve below 1 so full steering always beats a bend:
 // at the sharpest bend that ratio is 0.45 (Easy), 0.6 (Medium) and 0.7 (Hard).
@@ -779,9 +781,56 @@ function render(dt) {
 
 // ---- HUD and screens -------------------------------------------------------
 
+// The speedometer dial sweeps 270 degrees clockwise from bottom left (135) to bottom right (405).
+const dialAngle = (mph) => 135 + (clamp(mph, 0, MPH_MAX) / MPH_MAX) * 270;
+
+// Builds the steampunk speedometer once: brass bezel with rivets, cream face, ticks every 5 mph,
+// numbers every 20, a red zone from 100 mph, and a red needle on a brass hub.
+function buildSpeedo() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const dial = el('speedo');
+  const add = (tag, attrs, parent = dial) => {
+    const node = document.createElementNS(NS, tag);
+    for (const k in attrs) node.setAttribute(k, attrs[k]);
+    parent.append(node);
+    return node;
+  };
+  const at = (deg, r) => [Math.cos((deg * Math.PI) / 180) * r, Math.sin((deg * Math.PI) / 180) * r];
+  const defs = add('defs', {});
+  const grad = add('radialGradient', { id: 'speedo-brass', cx: '35%', cy: '30%', r: '75%' }, defs);
+  add('stop', { offset: '0', 'stop-color': '#e8c878' }, grad);
+  add('stop', { offset: '1', 'stop-color': '#7a5a20' }, grad);
+  add('circle', { r: 48, fill: 'url(#speedo-brass)' });
+  add('circle', { r: 40, fill: '#f8f2e4', stroke: '#5a3d14', 'stroke-width': 1.5 });
+  for (let i = 0; i < 8; i++) {
+    const [x, y] = at(i * 45 + 22.5, 44);
+    add('circle', { cx: x, cy: y, r: 1.6, fill: '#5a3d14' });
+  }
+  const [rx1, ry1] = at(dialAngle(100), 34);
+  const [rx2, ry2] = at(dialAngle(MPH_MAX), 34);
+  add('path', { d: `M${rx1} ${ry1} A34 34 0 0 1 ${rx2} ${ry2}`, fill: 'none', stroke: '#a3361f', 'stroke-width': 5 });
+  for (let mph = 0; mph <= MPH_MAX; mph += 5) {
+    const major = mph % 20 === 0;
+    const [x1, y1] = at(dialAngle(mph), major ? 30 : 33);
+    const [x2, y2] = at(dialAngle(mph), 37);
+    add('line', { x1, y1, x2, y2, stroke: '#2b2118', 'stroke-width': major ? 1.8 : 0.9 });
+    if (major) {
+      const [tx, ty] = at(dialAngle(mph), 22);
+      add('text', { x: tx, y: ty + 3, 'text-anchor': 'middle', 'font-size': 8, 'font-weight': 600, fill: '#2b2118' }).textContent = mph;
+    }
+  }
+  add('text', { y: 20, 'text-anchor': 'middle', 'font-size': 7, fill: '#5a4630', 'font-style': 'italic' }).textContent = 'mph';
+  const needle = add('g', { id: 'speedo-needle', transform: `rotate(${dialAngle(0)})` });
+  add('path', { d: 'M-6 -2 L32 0 L-6 2 Z', fill: '#a3361f' }, needle);
+  add('circle', { r: 5, fill: 'url(#speedo-brass)', stroke: '#5a3d14', 'stroke-width': 1 });
+}
+buildSpeedo();
+
 function hud() {
   el('hud-distance').textContent = `${Math.floor(run.z / SEG).toLocaleString()} m`;
-  el('hud-speed').textContent = `${Math.round((run.speed / SEG) * 3.6)} km/h`;
+  const mph = run.speed * MPH_PER_UNIT;
+  el('hud-speed').textContent = `${Math.round(mph)} mph`;
+  el('speedo-needle').setAttribute('transform', `rotate(${dialAngle(mph)})`);
   el('hud-gap').textContent = `${Math.max(0, Math.round(run.gap))} m behind`;
   el('hud-meter').style.width = `${clamp(run.gap / GAP_MAX, 0, 1) * 100}%`;
   const counting = run.paused === 'countdown';
@@ -795,6 +844,8 @@ function hud() {
     el('turn-text').textContent = run.turn > 0 ? 'Bend right' : 'Bend left';
   }
   el('hud-fault').hidden = !run.warned || !!run.paused;
+  // The HUD gains a row on narrow screens when the fault notice shows, so the mirror follows its bottom edge.
+  mirrorTop = (document.querySelector('.hud').getBoundingClientRect().bottom + 10) * (canvas.width / canvas.clientWidth);
 }
 
 function frame(t) {

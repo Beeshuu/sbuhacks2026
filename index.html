@@ -121,7 +121,10 @@
     <div class="hud">
       <div class="hud-group">
         <p class="gauge"><span class="gauge-label">Distance</span> <span id="hud-distance">0 m</span></p>
-        <p class="gauge"><span class="gauge-label">Speed</span> <span id="hud-speed">0 km/h</span></p>
+        <div class="gauge speedo">
+          <svg id="speedo" viewBox="-50 -50 100 100" aria-hidden="true"></svg>
+          <span class="gauge-label">Speed</span> <span id="hud-speed">0 mph</span>
+        </div>
         <p id="hud-fault" class="gauge notice" hidden>Engine trouble ahead</p>
       </div>
       <div class="hud-group">
