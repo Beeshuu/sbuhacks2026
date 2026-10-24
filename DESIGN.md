@@ -1,4 +1,4 @@
-# Steel Junction: design direction
+# Steel junction: design direction
 
 Chosen by the team: option B, "Instrument" (polished Victorian brass), from the mockup Claude proposed.
 

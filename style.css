@@ -469,3 +469,31 @@ kbd {
 /* The pause menu reads like the loss screen: everything centred. */
 .panel { text-align: center; }
 .panel .menu-actions { justify-content: center; }
+
+/* ---- Leaderboards ----------------------------------------------------------- */
+.menu-side { display: flex; flex-direction: column; gap: 28px; }
+.menu-side .chain { padding-top: 16px; border-top: 4px double var(--brass); }
+.topfive .board-list li { display: flex; justify-content: space-between; gap: 16px; max-width: 340px; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.topfive .who { font-weight: 600; overflow-wrap: anywhere; }
+.topfive .far { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Name entry on the glass loss screen */
+.score-form { margin: 14px 0 4px; }
+.score-form label { display: block; margin-bottom: 8px; font-weight: 600; }
+.score-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.score-row input {
+  min-height: 44px;
+  width: 12em;
+  max-width: 100%;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--face);
+  background: rgba(10, 8, 16, 0.35); /* darker than the glass, so the typed text and placeholder stay above 4.5:1 */
+  border: 1px solid rgba(248, 242, 228, 0.55);
+  border-radius: 3px;
+}
+.score-row input::placeholder { color: rgba(248, 242, 228, 0.8); }
+.score-row input[aria-invalid='true'] { border-color: #ffe08a; }
+.score-error { min-height: 1.4em; margin: 6px 0 0; color: #ffe08a; font-size: 0.95rem; } /* pale amber: 4.6:1 even with the sun behind the glass */
+.score-note { min-height: 0; margin: 8px 0 0; }
+.score-note:empty { display: none; }

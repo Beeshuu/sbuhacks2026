@@ -38,6 +38,26 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function loadBest() {
   try { return JSON.parse(localStorage.getItem(BEST_KEY)) || {}; } catch { return {}; }
 }
+const SCORES_KEY = 'steel-junction-scores';
+const NAME_KEY = 'steel-junction-name';
+const TOP = 5;
+const NAME_OK = /^[A-Za-z0-9 _.-]{1,16}$/; // also keeps '|' out of the Solana memo
+
+function loadScores() {
+  try { return JSON.parse(localStorage.getItem(SCORES_KEY)) || {}; } catch { return {}; }
+}
+function saveScores(scores) {
+  try { localStorage.setItem(SCORES_KEY, JSON.stringify(scores)); } catch { /* blocked storage: scores last this visit only */ }
+}
+const topFive = (mode) => (loadScores()[mode] || []).slice(0, TOP);
+const makesTopFive = (mode, metres) => {
+  const list = topFive(mode);
+  return metres > 0 && (list.length < TOP || metres > list[TOP - 1].metres);
+};
+function lastName() {
+  try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; }
+}
+
 function saveBest(best) {
   try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch { /* blocked storage: best distance lasts this visit only */ }
 }
@@ -227,6 +247,42 @@ function nextQuestion() {
   return run.bag.pop();
 }
 
+// ---- Day and night -------------------------------------------------------------
+// A full cycle (day, sunset, night, dawn) every CYCLE metres. Each key is a moment in the cycle (0 to 1)
+// and the colours of everything outside the track; in between, every colour blends smoothly.
+const CYCLE = 5000;
+const DAY = { top: '#3f7fc4', mid: '#6fa6dc', low: '#a9d0ee', hz: '#d6e9f2', far: '#9db2c7', city: '#6b6f7a', ridge: '#5f8c45', ground: '#79a650', cloud: '#ffffff', cloudA: 0.92, dark: 0, lights: 0.1 };
+const SUNSET = { top: '#2b2a5c', mid: '#8a3f6b', low: '#e8734a', hz: '#f6b26b', far: '#7a5577', city: '#3b2b3e', ridge: '#4a3b3a', ground: '#5f6e33', cloud: '#f8a882', cloudA: 0.9, dark: 0.3, lights: 0.8 };
+const NIGHT = { top: '#0b1030', mid: '#141a45', low: '#22285a', hz: '#303868', far: '#2a2f4a', city: '#161828', ridge: '#1e2420', ground: '#2b3a22', cloud: '#4a5274', cloudA: 0.6, dark: 1, lights: 1 };
+const DAWN = { top: '#3a4a8a', mid: '#b07aa8', low: '#f0a888', hz: '#f8d4a8', far: '#8a8aa8', city: '#4a4458', ridge: '#4c5a40', ground: '#607a40', cloud: '#ffcfbf', cloudA: 0.9, dark: 0.35, lights: 0.4 };
+const SKY_KEYS = [[0, DAY], [0.35, DAY], [0.5, SUNSET], [0.62, NIGHT], [0.85, NIGHT], [0.95, DAWN], [1, DAY]];
+
+const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const mixRgb = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const css = (rgb, alpha = 1) => `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+// The sky palette at this distance; every colour is an [r, g, b] array.
+function skyAt(metres) {
+  const u = (metres % CYCLE) / CYCLE;
+  let k = 0;
+  while (u > SKY_KEYS[k + 1][0]) k++;
+  const [u0, a] = SKY_KEYS[k];
+  const [u1, b] = SKY_KEYS[k + 1];
+  const t = smooth(0, 1, (u - u0) / (u1 - u0));
+  const out = { u };
+  for (const key of Object.keys(a)) out[key] = typeof a[key] === 'number' ? a[key] + (b[key] - a[key]) * t : mixRgb(rgbOf(a[key]), rgbOf(b[key]), t);
+  return out;
+}
+
+let sky = skyAt(0);
+
+const STARS = (() => {
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  return Array.from({ length: 70 }, () => [rnd(), rnd() * 0.85, 0.6 + rnd() * 1.2]);
+})();
+
 // ---- Drawing ---------------------------------------------------------------
 
 function quad(x1, y1, x2, y2, x3, y3, x4, y4, color) {
@@ -266,60 +322,85 @@ const SKYLINE = (() => {
   return out;
 })();
 
-// Sunset outside the track: indigo to orange sky, a low sun, warm clouds, purple mountains,
-// a smoky industrial skyline, dark hills and evening grass.
+// Everything outside the track, coloured by the time of day: sky, stars, moon, sun, clouds, mountains,
+// the industrial skyline, dark hills and the grass.
 function drawSky(w, h) {
   const hz = horizonOf(w, h);
-  const sky = ctx.createLinearGradient(0, 0, 0, hz);
-  sky.addColorStop(0, '#2b2a5c');
-  sky.addColorStop(0.45, '#8a3f6b');
-  sky.addColorStop(0.8, '#e8734a');
-  sky.addColorStop(1, '#f6b26b');
-  ctx.fillStyle = sky;
+  const grad = ctx.createLinearGradient(0, 0, 0, hz);
+  grad.addColorStop(0, css(sky.top));
+  grad.addColorStop(0.45, css(sky.mid));
+  grad.addColorStop(0.8, css(sky.low));
+  grad.addColorStop(1, css(sky.hz));
+  ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, hz + 1);
 
+  if (sky.dark > 0.05) {
+    ctx.fillStyle = `rgba(255, 252, 235, ${sky.dark * 0.85})`;
+    for (const [sx, sy, size] of STARS) ctx.fillRect(sx * w, sy * hz, size * (w / 1000), size * (w / 1000));
+    const mx = w * 0.22;
+    const my = hz * 0.28;
+    const mr = w * 0.028;
+    const glow = ctx.createRadialGradient(mx, my, mr, mx, my, mr * 4);
+    glow.addColorStop(0, `rgba(240, 238, 220, ${sky.dark * 0.35})`);
+    glow.addColorStop(1, 'rgba(240, 238, 220, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(mx - mr * 4, my - mr * 4, mr * 8, mr * 8);
+    ctx.fillStyle = `rgba(244, 241, 222, ${sky.dark})`;
+    ctx.beginPath();
+    ctx.arc(mx, my, mr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // The sun sets through the first half of the cycle and rises again at dawn.
+  const u = sky.u;
+  const set = u < 0.7 ? smooth(0.3, 0.56, u) : 1 - smooth(0.86, 1, u);
   const sunX = w * 0.68 - run.hills * w * 0.6;
-  const sunY = hz - h * 0.06;
-  const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, w * 0.25);
-  halo.addColorStop(0, 'rgba(255, 214, 140, 0.75)');
-  halo.addColorStop(1, 'rgba(255, 214, 140, 0)');
-  ctx.fillStyle = halo;
-  ctx.fillRect(0, 0, w, hz);
-  ctx.fillStyle = '#ffd98a';
-  ctx.beginPath();
-  ctx.arc(sunX, sunY, w * 0.045, 0, Math.PI * 2);
-  ctx.fill();
+  const sunY = hz - h * 0.34 + set * h * 0.38;
+  const r = w * 0.045;
+  if (sunY - r < hz) {
+    const low = smooth(0.2, 0.9, set);
+    const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, w * (0.15 + low * 0.12));
+    halo.addColorStop(0, `rgba(255, 214, 140, ${(0.35 + low * 0.4) * (1 - sky.dark)})`); // gone by full night
+    halo.addColorStop(1, 'rgba(255, 214, 140, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, w, hz);
+    ctx.fillStyle = css(mixRgb([255, 246, 216], [255, 190, 110], low));
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   const span = w * 1.4;
   const drift = run.hills * w * 3 + run.time * w * 0.006;
+  const shade = mixRgb(sky.cloud, sky.top, 0.35);
   for (const [cx, cy, size] of CLOUDS) {
     const x = (((cx * w - drift) % span) + span) % span - w * 0.2;
     const y = cy * hz;
-    const r = w * 0.035 * size;
-    for (const [dx, dy, k, color] of [[0, 0.15, 1, 'rgba(120, 60, 100, 0.55)'], [0, 0, 1, 'rgba(250, 170, 130, 0.9)'], [1.1, 0.2, 0.8, 'rgba(244, 150, 120, 0.85)'], [-1.1, 0.25, 0.75, 'rgba(244, 150, 120, 0.85)']]) {
-      ctx.fillStyle = color;
+    const cr = w * 0.035 * size;
+    for (const [dx, dy, k, color] of [[0, 0.15, 1, shade], [0, 0, 1, sky.cloud], [1.1, 0.2, 0.8, sky.cloud], [-1.1, 0.25, 0.75, sky.cloud]]) {
+      ctx.fillStyle = css(color, sky.cloudA);
       ctx.beginPath();
-      ctx.ellipse(x + dx * r, y + dy * r, r * k * 1.3, r * k, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + dx * cr, y + dy * cr, cr * k * 1.3, cr * k, 0, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   const ridge = (color, amp, speed, freq) => {
-    ctx.fillStyle = color;
+    ctx.fillStyle = css(color);
     ctx.beginPath();
     ctx.moveTo(0, hz);
     for (let i = 0; i <= 60; i++) {
       const t = (i / 60) * freq * Math.PI * 2 + run.hills * speed * 40;
-      const r = 0.55 + 0.27 * Math.sin(t) + 0.13 * Math.sin(t * 2.3 + 1) + 0.05 * Math.sin(t * 5.1);
-      ctx.lineTo((i / 60) * w, hz - h * amp * r);
+      const rr = 0.55 + 0.27 * Math.sin(t) + 0.13 * Math.sin(t * 2.3 + 1) + 0.05 * Math.sin(t * 5.1);
+      ctx.lineTo((i / 60) * w, hz - h * amp * rr);
     }
     ctx.lineTo(w, hz);
     ctx.fill();
   };
-  ridge('#7a5577', 0.13, 0.25, 1.3);
+  ridge(sky.far, 0.13, 0.25, 1.3);
   drawSkyline(w, h, hz);
-  ridge('#4a3b3a', 0.035, 1, 3.7);
-  ctx.fillStyle = '#5f6e33';
+  ridge(sky.ridge, 0.035, 1, 3.7);
+  ctx.fillStyle = css(sky.ground);
   ctx.fillRect(0, hz, w, h - hz);
 }
 
@@ -332,7 +413,7 @@ function drawSkyline(w, h, hz) {
       const bw = b.width * tile;
       if (x > w || x + bw < 0) continue;
       const top = hz - b.height * h;
-      ctx.fillStyle = '#3b2b3e';
+      ctx.fillStyle = css(sky.city);
       if (b.factory) {
         ctx.beginPath();
         ctx.moveTo(x, hz);
@@ -346,22 +427,22 @@ function drawSkyline(w, h, hz) {
         ctx.fill();
         for (const [at, tall] of b.stacks) {
           const sx = x + at * bw;
-          ctx.fillStyle = '#3b2b3e';
+          ctx.fillStyle = css(sky.city);
           ctx.fillRect(sx - bw * 0.03, hz - tall * h, bw * 0.06, tall * h);
           // Chimney smoke drifts off to the left and thins out.
           for (let k = 0; k < 4; k++) {
             const t = ((run.time * 0.25 + k / 4 + at) % 1);
-            ctx.fillStyle = `rgba(90, 70, 90, ${0.45 * (1 - t)})`;
+            ctx.fillStyle = css(mixRgb(sky.city, sky.hz, 0.4), 0.45 * (1 - t));
             ctx.beginPath();
             ctx.arc(sx - t * w * 0.03, hz - tall * h - t * h * 0.05, w * (0.004 + t * 0.01), 0, Math.PI * 2);
             ctx.fill();
           }
         }
-        ctx.fillStyle = '#ffcf6a';
+        ctx.fillStyle = `rgba(255, 207, 106, ${sky.lights})`;
         for (let i = 0; i < 4; i++) if (b.lights[i]) ctx.fillRect(x + bw * (0.15 + i * 0.2), top + (hz - top) * 0.45, bw * 0.08, (hz - top) * 0.18);
       } else {
         ctx.fillRect(x, top, bw, hz - top);
-        ctx.fillStyle = '#ffcf6a';
+        ctx.fillStyle = `rgba(255, 207, 106, ${sky.lights})`;
         b.lights.forEach((on, i) => {
           if (!on) return;
           const col = i % 3;
@@ -471,7 +552,7 @@ function drawTrack(w, h) {
     dx += seg.curve;
     if (p1.cz <= 1 || p2.y >= maxY) continue;
     const clip = maxY;
-    ctx.fillStyle = Math.floor(abs / 4) % 2 ? '#647538' : '#5c6c33';
+    ctx.fillStyle = css(Math.floor(abs / 4) % 2 ? sky.ground : mixRgb(sky.ground, [0, 0, 0], 0.08));
     ctx.fillRect(0, p2.y, w, p1.y - p2.y + 1);
     strip(p1, p2, 0, 1, '#bfa982');
     // A sleeper under the front of each nearby segment; far away they would only flicker.
@@ -551,8 +632,8 @@ function drawMirror(w, h) {
   ctx.rect(mx, my, mw, mh);
   ctx.clip();
   const glass = ctx.createLinearGradient(0, my, 0, my + mh * 0.45);
-  glass.addColorStop(0, '#5a3352');
-  glass.addColorStop(1, '#f0925a');
+  glass.addColorStop(0, css(mixRgb(sky.top, [0, 0, 0], 0.2)));
+  glass.addColorStop(1, css(sky.low));
   ctx.fillStyle = glass;
   ctx.fillRect(mx, my, mw, mh * 0.45);
   ctx.fillStyle = '#3a2f2c';
@@ -801,13 +882,30 @@ function stepSmoke(dt, w, h) {
   }
 }
 
+// Darkens the ground at night, then lays a warm headlamp glow up the track so obstacles stay visible.
+function drawNight(w, h) {
+  const hz = horizonOf(w, h);
+  ctx.fillStyle = `rgba(10, 14, 40, ${sky.dark * 0.45})`;
+  ctx.fillRect(0, hz, w, h - hz);
+  const lamp = ctx.createLinearGradient(0, h, 0, hz);
+  lamp.addColorStop(0, `rgba(255, 214, 150, ${sky.dark * 0.28})`);
+  lamp.addColorStop(1, 'rgba(255, 214, 150, 0)');
+  ctx.fillStyle = lamp;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.32, h); ctx.lineTo(w * 0.47, hz); ctx.lineTo(w * 0.53, hz); ctx.lineTo(w * 0.68, h);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function render(dt) {
   const w = canvas.width;
   const h = canvas.height;
   ctx.save();
   if (run.shake > 0 && !calm) ctx.translate((Math.random() - 0.5) * run.shake * w * 0.015, (Math.random() - 0.5) * run.shake * h * 0.015);
+  sky = skyAt(run.z / SEG);
   drawSky(w, h);
   drawTrack(w, h);
+  if (sky.dark > 0.02) drawNight(w, h);
   drawTrain(w, h);
   stepSmoke(dt, w, h);
   if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
@@ -929,7 +1027,21 @@ function showBriefing() {
   el('go').focus();
 }
 
+function renderBoard() {
+  const mode = selectedMode();
+  const list = topFive(mode);
+  el('top-mode').textContent = MODES[mode].label;
+  el('top-empty').hidden = list.length > 0;
+  el('top-list').replaceChildren(...list.map((entry) => {
+    const li = document.createElement('li');
+    li.append(Object.assign(document.createElement('span'), { className: 'who', textContent: entry.name }),
+      Object.assign(document.createElement('span'), { className: 'far', textContent: `${entry.metres.toLocaleString()} m` }));
+    return li;
+  }));
+}
+
 function renderBest() {
+  renderBoard();
   const best = loadBest();
   for (const mode of Object.keys(MODES)) {
     el(`best-${mode}`).textContent = best[mode] ? `Your best: ${best[mode].toLocaleString()} m` : 'No run yet';
@@ -958,8 +1070,16 @@ function finish() {
   const record = metres > (best[run.mode] || 0);
   if (record) { best[run.mode] = metres; saveBest(best); }
   el('over-distance').textContent = `${metres.toLocaleString()} m`;
+  run.metres = metres;
+  const form = el('score-form');
+  form.hidden = !makesTopFive(run.mode, metres);
+  el('score-note').textContent = '';
+  el('score-error').textContent = '';
+  el('score-name').removeAttribute('aria-invalid');
+  el('score-name').value = lastName();
   announce(`The monster caught the train after ${metres} metres.`);
   el('over').showModal();
+  if (!form.hidden) el('score-name').focus();
 }
 
 function pause(on) {
@@ -1000,6 +1120,31 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && run
 window.addEventListener('resize', () => { if (!el('drive').hidden) resize(); });
 
 el('start').addEventListener('click', showBriefing);
+for (const input of document.querySelectorAll('input[name="difficulty"]')) input.addEventListener('change', renderBoard);
+
+el('score-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = el('score-name');
+  const name = input.value.replace(/\s+/g, ' ').trim();
+  if (!NAME_OK.test(name)) {
+    el('score-error').textContent = name ? 'Use letters, numbers, spaces, dots, dashes or underscores, up to 16 characters.' : 'Type a name first.';
+    input.setAttribute('aria-invalid', 'true');
+    input.focus();
+    return;
+  }
+  const scores = loadScores();
+  const list = [...(scores[run.mode] || []), { name, metres: run.metres }].sort((a, b) => b.metres - a.metres).slice(0, TOP);
+  scores[run.mode] = list;
+  saveScores(scores);
+  try { localStorage.setItem(NAME_KEY, name); } catch { /* the name just won't be remembered */ }
+  el('score-form').hidden = true;
+  el('score-note').textContent = `Saved. You're number ${list.findIndex((x) => x.name === name && x.metres === run.metres) + 1} on ${run.cfg.label}.`;
+  el('again').focus();
+});
+el('score-name').addEventListener('input', () => {
+  el('score-error').textContent = '';
+  el('score-name').removeAttribute('aria-invalid');
+});
 el('go').addEventListener('click', startRun);
 el('brief-back').addEventListener('click', toMenu);
 el('again').addEventListener('click', () => { el('over').close(); startRun(); });
@@ -1019,15 +1164,15 @@ const link = (href, text) => Object.assign(document.createElement('a'), { href, 
 el('record').addEventListener('click', async () => {
   const note = el('record-note');
   const mode = selectedMode();
-  const best = loadBest()[mode];
+  const best = topFive(mode)[0];
   if (!best) {
-    note.textContent = `Finish a run on ${MODES[mode].label} first, then record it here.`;
+    note.textContent = `Finish a run on ${MODES[mode].label} and save your name first, then record it here.`;
     return;
   }
-  note.textContent = `Recording your best ${MODES[mode].label} run (${best.toLocaleString()} m). Approve the transaction in Phantom.`;
+  note.textContent = `Recording ${best.name}'s ${best.metres.toLocaleString()} m on ${MODES[mode].label}. Approve the transaction in Phantom.`;
   el('record').hidden = true;
   try {
-    const sig = await Chain.record(mode, best);
+    const sig = await Chain.record(mode, best.metres, best.name);
     note.replaceChildren('Recorded on the Solana devnet. ', link(Chain.explorer(sig), 'View the transaction on Solana Explorer'));
   } catch (err) {
     note.textContent = Chain.explain(err);
@@ -1041,11 +1186,11 @@ el('board-load').addEventListener('click', async () => {
   list.replaceChildren();
   note.textContent = 'Reading the devnet ledger…';
   try {
-    const runs = await Chain.leaderboard();
+    const runs = await Chain.leaderboard(TOP);
     note.textContent = runs.length ? 'Best recorded runs, read live from the Solana devnet.' : 'No runs recorded yet. Finish a run and record it to claim the top spot.';
     list.replaceChildren(...runs.map((r) => {
       const li = document.createElement('li');
-      li.append(`${r.metres.toLocaleString()} m, ${MODES[r.difficulty].label}, ${r.player ? short(r.player) : 'unknown wallet'} `, link(Chain.explorer(r.signature), 'proof'));
+      li.append(`${r.metres.toLocaleString()} m, ${MODES[r.difficulty].label}, ${r.name || (r.player ? short(r.player) : 'unknown wallet')} `, link(Chain.explorer(r.signature), 'proof'));
       return li;
     }));
   } catch (err) {

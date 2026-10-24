@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Steel Junction</title>
+  <title>Steel junction</title>
   <meta name="description" content="Drive the last steam train out while a monster chases you. Steer through bends, dodge obstacles, and fix engine faults by wiring AND, OR, NOT and XOR signal boxes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,13 +11,13 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <noscript><p class="status">Steel Junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
+  <noscript><p class="status">Steel junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
 
   <!-- Main menu -->
   <div id="menu" class="screen">
     <div class="wrap menu">
       <header class="menu-head">
-        <h1>Steel Junction</h1>
+        <h1>Steel junction</h1>
         <p class="tagline">Drive the last train out of the yard. Keep the engine running. Don't let it catch you.</p>
       </header>
 
@@ -69,9 +69,17 @@
           </div>
         </section>
 
+        <div class="menu-side">
+        <section aria-labelledby="top-title" class="topfive">
+          <h2 id="top-title">Leaderboard</h2>
+          <p class="hint">Top 5 on <span id="top-mode">Easy</span>, saved in this browser.</p>
+          <ol id="top-list" class="board-list"></ol>
+          <p id="top-empty" class="hint">No saved runs yet. Finish a run that makes the top 5 and add your name.</p>
+        </section>
+
         <section aria-labelledby="chain-title" class="chain">
           <h2 id="chain-title">Devnet leaderboard</h2>
-          <p class="hint">Record your best distance for the selected difficulty on the Solana devnet with a Phantom wallet. Devnet uses free test SOL. The list is read straight from the chain, so every entry links to its transaction.</p>
+          <p class="hint">Put your best saved run for the selected difficulty on the Solana devnet with a Phantom wallet, under your leaderboard name. Devnet uses free test SOL. The top 5 is read straight from the chain, so every entry links to its transaction.</p>
           <div class="menu-actions">
             <button type="button" id="board-load" class="quiet">Load the leaderboard</button>
             <button type="button" id="record" class="quiet">Record my best run with Phantom</button>
@@ -80,6 +88,7 @@
           <p id="board-note" class="hint" role="status"></p>
           <ol id="board-list" class="board-list"></ol>
         </section>
+        </div>
       </main>
     </div>
   </div>
@@ -236,6 +245,15 @@
   <dialog id="over" class="over" aria-labelledby="over-title">
     <h2 id="over-title">You lost!</h2>
     <p class="over-distance"><span class="gauge-label">Distance</span> <span id="over-distance">0 m</span></p>
+    <form id="score-form" class="score-form" hidden novalidate>
+      <label for="score-name">New top 5 run! Your name for the leaderboard</label>
+      <div class="score-row">
+        <input id="score-name" name="name" maxlength="16" autocomplete="nickname" spellcheck="false" placeholder="Your name" aria-describedby="score-error">
+        <button type="submit" class="quiet">Save score</button>
+      </div>
+      <p id="score-error" class="score-error" role="alert"></p>
+    </form>
+    <p id="score-note" class="score-note" role="status"></p>
     <div class="menu-actions">
       <button type="button" id="again" class="run">Retry</button>
       <button type="button" id="to-menu" class="quiet">Menu</button>

@@ -1,13 +1,13 @@
 // Records finished runs on the Solana devnet and reads them back as a shared leaderboard.
 // One record is one transaction signed by the player's Phantom wallet:
 //   1. a 0-lamport transfer to the leaderboard address, which tags the transaction so it can be listed later;
-//   2. a Memo program instruction holding "SJ1|<difficulty>|<metres>".
+//   2. a Memo program instruction holding "SJ1|<difficulty>|<metres>|<name>" (older records have no name).
 // Devnet only: SOL there is free test currency, so nothing of value moves.
 
 // Accepts the memo text as the RPC returns it ("[13] SJ1|hard|1234") and rejects anything malformed.
 function parseRunMemo(memo) {
-  const m = /^(?:\[\d+\]\s*)?SJ1\|(easy|medium|hard)\|(\d{1,7})$/.exec(String(memo).trim());
-  return m && { difficulty: m[1], metres: Number(m[2]) };
+  const m = /^(?:\[\d+\]\s*)?SJ1\|(easy|medium|hard)\|(\d{1,7})(?:\|([A-Za-z0-9 _.-]{1,16}))?$/.exec(String(memo).trim());
+  return m && { difficulty: m[1], metres: Number(m[2]), name: m[3] || '' };
 }
 
 const Chain = (() => {
@@ -43,7 +43,7 @@ const Chain = (() => {
     return p?.isPhantom ? p : null;
   };
 
-  async function record(difficulty, metres) {
+  async function record(difficulty, metres, name) {
     const wallet = phantom();
     if (!wallet) throw new Error('NO_WALLET');
     const { w, memo, board, conn } = await setup();
@@ -53,7 +53,7 @@ const Chain = (() => {
       new w.TransactionInstruction({
         programId: memo,
         keys: [{ pubkey: publicKey, isSigner: true, isWritable: false }],
-        data: new TextEncoder().encode(`SJ1|${difficulty}|${Math.floor(metres)}`),
+        data: new TextEncoder().encode(`SJ1|${difficulty}|${Math.floor(metres)}|${name}`),
       }),
     );
     const latest = await conn.getLatestBlockhash();
