@@ -6,7 +6,7 @@
   --ink: #2b2118;
   --ink-2: #5a4630;
   --brass: #8a6420; /* borders and graphics only: 4.43:1 on paper is too low for text */
-  --signal: #a3361f; /* the one accent: main action and gauge needles */
+  --signal: #a3361f; /* the one accent: the main action button */
   --rule: #cdb98d;
   --display: 'IM Fell English', Georgia, serif;
   color-scheme: light;
@@ -88,35 +88,34 @@ main {
 .boiler, .slot { cursor: pointer; }
 .boiler:hover .face, .slot:hover .body { stroke: var(--ink); }
 
-.tube { fill: none; stroke: var(--brass); stroke-width: 12; stroke-linejoin: round; }
+/* Track: sleepers under two rails. The gap between the rails fills in when the line is clear. */
+.sleepers { fill: none; stroke: var(--rule); stroke-width: 20; stroke-dasharray: 3 7; }
+.tube { fill: none; stroke: var(--brass); stroke-width: 11; stroke-linejoin: round; }
 .bore { fill: none; stroke: var(--plate); stroke-width: 6; stroke-linejoin: round; }
 .flow { fill: none; stroke: var(--face); stroke-width: 3; stroke-dasharray: 6 10; opacity: 0; }
 .pipe.hot .bore { stroke: var(--brass); }
-.pipe.hot .flow { opacity: 1; animation: flow 0.8s linear infinite; } /* moving dashes show which way steam travels */
+.pipe.hot .flow { opacity: 1; animation: flow 0.8s linear infinite; } /* moving dashes show which way the signal travels */
 @keyframes flow { to { stroke-dashoffset: -16; } }
 
-.needle {
-  stroke: var(--signal);
-  stroke-width: 3;
-  stroke-linecap: round;
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  transform: rotate(-60deg);
-  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.boiler.hot .needle { transform: rotate(60deg); }
-.tick { stroke: var(--brass); stroke-width: 2; }
+.window { fill: var(--plate); stroke: var(--brass); stroke-width: 1.5; }
+.frame { fill: var(--brass); }
+/* Smoke only shows on a ready engine; its rise repeats only while the engine stays ready. */
+.puff { fill: var(--face); stroke: var(--brass); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.boiler.hot .puff { opacity: 1; animation: puff 1.6s ease-out infinite; }
+.boiler.hot .puff + .puff { animation-delay: 0.4s; }
+@keyframes puff { from { transform: translateY(5px) scale(0.7); } to { transform: translateY(-3px) scale(1); } }
 
 .slot .body { fill: var(--plate); stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 6 5; }
 .slot.filled .body { fill: var(--face); stroke-width: 3; stroke-dasharray: none; }
 .slot .name { font-size: 18px; font-weight: 600; fill: var(--ink); text-anchor: middle; }
 .slot:not(.filled) .name { font-weight: 400; font-style: italic; fill: var(--ink-2); font-size: 15px; }
 .slot.target .body { stroke: var(--ink); stroke-dasharray: none; }
+.roof { fill: none; stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 6 5; stroke-linejoin: round; }
+.slot.filled .roof { fill: var(--brass); stroke-dasharray: none; }
+.slot.target .roof { stroke: var(--ink); stroke-dasharray: none; }
 
-.hub, .rodbar { fill: var(--brass); }
-.head { fill: var(--ink); }
-.rod { transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.piston.fired .rod { transform: translateX(26px); }
+.rod { transition: transform 0.6s cubic-bezier(0.5, 0, 0.2, 1); }
+.piston.fired .rod { transform: translateX(40px); }
 
 /* Drawer and buttons */
 .drawer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
@@ -192,6 +191,6 @@ aside h2 { margin: 0 0 4px; font-size: 1.6rem; }
   .state, .slot:not(.filled) .name { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .needle, .rod { transition: none; }
-  .pipe.hot .flow { animation: none; }
+  .rod { transition: none; }
+  .pipe.hot .flow, .boiler.hot .puff { animation: none; }
 }

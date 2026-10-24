@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Steel Mill</title>
-  <meta name="description" content="A steam-powered puzzle that teaches logic gates. Route steam through AND, OR and NOT valves to fire the piston.">
+  <title>Steel Junction</title>
+  <meta name="description" content="A steam railway puzzle that teaches logic gates. Set AND, OR, NOT and XOR signal boxes so the express departs at the right moments.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
@@ -14,15 +14,15 @@
   <div class="wrap">
     <header>
       <div>
-        <h1>Steel Mill</h1>
-        <p class="tagline">A steam-powered primer on logic gates</p>
+        <h1>Steel Junction</h1>
+        <p class="tagline">A steam railway primer on logic gates</p>
       </div>
       <nav aria-label="Plates">
         <ol id="plates" class="plates"></ol>
       </nav>
     </header>
 
-    <noscript><p class="status">Steel Mill needs JavaScript to run the steam. Turn it on and reload the page.</p></noscript>
+    <noscript><p class="status">Steel Junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
 
     <main>
       <section aria-labelledby="plate-title">
@@ -34,10 +34,10 @@
           <svg id="board" viewBox="0 0 560 300" role="group" aria-labelledby="plate-title"></svg>
         </div>
 
-        <div class="drawer" role="group" aria-label="Valve drawer">
-          <span class="drawer-label" id="drawer-label">Valves:</span>
+        <div class="drawer" role="group" aria-label="Signal box drawer">
+          <span class="drawer-label" id="drawer-label">Signal boxes:</span>
           <div id="parts" class="parts"></div>
-          <button type="button" id="clear" class="quiet">Clear the valves</button>
+          <button type="button" id="clear" class="quiet">Clear the boxes</button>
           <button type="button" id="run" class="run">Run the test cycle</button>
         </div>
         <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -45,10 +45,10 @@
         <details id="howto" class="howto">
           <summary>How to play</summary>
           <ol>
-            <li>Pick a valve from the drawer, then choose an empty slot on the board to fit it. You can also drag a valve onto a slot.</li>
-            <li>Choose a slot with no valve picked to take its valve out. Press Escape to put a picked valve back.</li>
-            <li>Click a boiler to light or douse it, and watch where the steam goes.</li>
-            <li>When you think the order is met, run the test cycle. The inspector tries every boiler setting.</li>
+            <li>Pick a signal box from the drawer, then choose an empty slot on the board to fit it. You can also drag a box onto a slot.</li>
+            <li>Choose a slot with nothing picked to take its box out. Press Escape to put a picked box back.</li>
+            <li>Click an engine to get it ready or send it back to the shed, and watch which tracks clear.</li>
+            <li>When you think the order is met, run the test cycle. The inspector tries every mix of ready and idle engines.</li>
           </ol>
         </details>
       </section>
@@ -56,7 +56,7 @@
       <aside>
         <section aria-labelledby="ledger-title" class="ledger">
           <h2 id="ledger-title">Inspector's ledger</h2>
-          <p class="hint">Each row is one boiler setting and what the order wants the piston to do.</p>
+          <p class="hint">Each row is one mix of engines and what the order wants the express to do.</p>
           <table id="ledger"></table>
           <p id="ledger-note" class="hint"></p>
           <div id="verdict"></div>
