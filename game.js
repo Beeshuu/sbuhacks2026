@@ -47,10 +47,10 @@ let mirrorTop = 0; // canvas pixels; the mirror hangs just below the HUD, which 
 
 // ---- Track generation -------------------------------------------------------
 
-function newRun(mode) {
+function newRun(mode, category) {
   const cfg = MODES[mode];
   run = {
-    mode, cfg,
+    mode, cfg, category, bag: [],
     z: 0, x: 0, speed: cfg.maxSpeed * 0.5, gap: 60, time: 0,
     segs: new Array(RING), written: 0, plan: [], lastObstacle: 0,
     nextFault: rand(...cfg.fault), repairs: 0, hits: 0,
@@ -175,9 +175,10 @@ async function startRepair() {
   const { cfg } = run;
   run.paused = 'repair';
   keys.left = keys.right = false;
-  announce('Engine fault. Fix the signal circuit before the timer runs out.');
+  announce('Engine fault. Answer the question in the pop-up before the timer runs out.');
+  const kind = run.category === 'mixed' ? (Math.random() < 0.5 ? 'circuits' : 'coding') : run.category;
   const plate = cfg.plates[Math.floor(Math.random() * cfg.plates.length)];
-  const ok = await Workshop.repair(plate, cfg.repair);
+  const ok = kind === 'coding' ? await Quiz.repair(nextQuestion(), cfg.repair) : await Workshop.repair(plate, cfg.repair);
   if (run.over) return;
   run.paused = null;
   run.nextFault = rand(...cfg.fault);
@@ -192,6 +193,12 @@ async function startRepair() {
     announce('The repair ran out of time. The train slowed to a crawl.');
   }
   canvas.focus();
+}
+
+// Coding questions come from a shuffled bag for this difficulty, so none repeats until all have been asked.
+function nextQuestion() {
+  if (!run.bag.length) run.bag = [...CODING[run.mode]].sort(() => Math.random() - 0.5);
+  return run.bag.pop();
 }
 
 // ---- Drawing ---------------------------------------------------------------
@@ -778,11 +785,30 @@ function resize() {
 }
 
 function show(screen) {
-  for (const id of ['menu', 'drive', 'practice']) el(id).hidden = id !== screen;
+  for (const id of ['menu', 'briefing', 'drive', 'practice']) el(id).hidden = id !== screen;
 }
 
 function selectedMode() {
   return document.querySelector('input[name="difficulty"]:checked').value;
+}
+function selectedCategory() {
+  return document.querySelector('input[name="category"]:checked').value;
+}
+
+const FAULT_HOW = {
+  circuits: 'A signal circuit opens. Pick a signal box from the drawer, place it in a slot, then press Run the test cycle. Every row in the ledger must match.',
+  coding: 'A short Python snippet opens. Read it and pick what it prints from four answers. A wrong pick costs nothing but time.',
+  mixed: 'Each fault is either a signal circuit (place signal boxes, then run the test cycle) or a Python snippet (pick what it prints).',
+};
+
+// The controls briefing shown before every run started from the menu.
+function showBriefing() {
+  const mode = MODES[selectedMode()];
+  const category = selectedCategory();
+  el('brief-setup').textContent = `${mode.label} difficulty, ${document.querySelector(`input[name="category"][value="${category}"]`).dataset.label} questions, ${mode.repair} seconds for each repair.`;
+  el('brief-fault').textContent = FAULT_HOW[category];
+  show('briefing');
+  el('go').focus();
 }
 
 function renderBest() {
@@ -793,7 +819,7 @@ function renderBest() {
 }
 
 function startRun() {
-  newRun(selectedMode());
+  newRun(selectedMode(), selectedCategory());
   show('drive');
   resize();
   el('paused').hidden = true;
@@ -860,7 +886,9 @@ for (const [id, dir] of [['steer-left', 'left'], ['steer-right', 'right']]) {
 document.addEventListener('visibilitychange', () => { if (document.hidden && run && !run.paused) pause(true); });
 window.addEventListener('resize', () => { if (!el('drive').hidden) resize(); });
 
-el('start').addEventListener('click', startRun);
+el('start').addEventListener('click', showBriefing);
+el('go').addEventListener('click', startRun);
+el('brief-back').addEventListener('click', toMenu);
 el('again').addEventListener('click', () => { el('over').close(); startRun(); });
 el('to-menu').addEventListener('click', toMenu);
 el('over').addEventListener('cancel', (e) => { e.preventDefault(); toMenu(); });

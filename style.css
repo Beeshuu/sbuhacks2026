@@ -332,3 +332,64 @@ dialog::backdrop { background: rgba(43, 33, 24, 0.6); }
 .timebar span { display: block; height: 100%; background: var(--ink); }
 .over { width: min(560px, calc(100% - 32px)); }
 .over h2 { margin: 0 0 8px; font-size: 2rem; }
+
+/* ---- Question categories, briefing, coding faults ------------------------- */
+.category { margin-top: 18px; }
+.brief h1 { margin: 0; font-style: italic; font-size: clamp(2.2rem, 6vw, 3.2rem); line-height: 1.1; }
+.brief .tagline { margin: 8px 0 20px; font-size: 1.1rem; }
+.brief h2 { margin: 0 0 10px; font-size: 1.6rem; }
+.brief-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 32px; padding: 18px 0; border-top: 4px double var(--brass); }
+.keys { margin: 0; }
+.keys div { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.keys dt { font-weight: 600; }
+.keys dd { margin: 0; }
+kbd {
+  display: inline-block;
+  min-width: 1.8em;
+  padding: 1px 6px;
+  text-align: center;
+  font: 600 0.95rem 'Source Serif 4', Georgia, serif;
+  background: var(--face);
+  border: 1px solid var(--brass);
+  border-bottom-width: 3px;
+  border-radius: 3px;
+}
+.rules { margin: 0; padding-left: 1.2em; }
+.rules li + li { margin-top: 8px; }
+@media (max-width: 760px) {
+  .brief-grid { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .keys div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+
+.quiz { margin-top: 14px; }
+.quiz h3 { margin-bottom: 8px; }
+.quiz pre {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--ink);
+  color: var(--face);
+  border-radius: 4px;
+  font: 1rem/1.5 ui-monospace, Consolas, 'Courier New', monospace; /* code reads best in a fixed-width face */
+}
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.choice {
+  min-height: 52px;
+  padding: 8px 14px;
+  text-align: left;
+  font: 1rem ui-monospace, Consolas, 'Courier New', monospace;
+  background: var(--face);
+  border: 1px solid var(--brass);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.choice:hover { border-color: var(--ink); }
+.choice.wrong { text-decoration: line-through; color: var(--ink-2); background: var(--plate); cursor: default; }
+.choice.wrong::after { content: '  ✗'; }
+.choice.right { background: var(--ink); color: var(--face); border-color: var(--ink); }
+.choice.right::after { content: '  ✓'; }
+.quiz-note { min-height: 1.55em; margin: 12px 0 0; }
+@media (max-width: 520px) {
+  .choices { grid-template-columns: minmax(0, 1fr); }
+  .quiz pre { padding: 12px; font-size: 0.85rem; }
+}

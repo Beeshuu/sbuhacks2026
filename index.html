@@ -45,21 +45,28 @@
               <span class="mode-best" id="best-hard"></span>
             </label>
           </fieldset>
+          <fieldset class="difficulty category">
+            <legend>Choose the engine-fault questions</legend>
+            <label class="mode">
+              <input type="radio" name="category" value="circuits" data-label="circuit" checked>
+              <span class="mode-name">Circuits</span>
+              <span class="mode-text">Wire AND, OR, NOT and XOR signal boxes until the express departs exactly when the order says.</span>
+            </label>
+            <label class="mode">
+              <input type="radio" name="category" value="coding" data-label="coding">
+              <span class="mode-name">Coding</span>
+              <span class="mode-text">Read a short Python snippet and pick what it prints. Harder difficulties bring trickier code.</span>
+            </label>
+            <label class="mode">
+              <input type="radio" name="category" value="mixed" data-label="mixed">
+              <span class="mode-name">Mixed</span>
+              <span class="mode-text">Each fault could be either one.</span>
+            </label>
+          </fieldset>
           <div class="menu-actions">
             <button type="button" id="start" class="run">Start the run</button>
             <button type="button" id="to-practice" class="quiet">Practise the signal boxes</button>
           </div>
-          <details class="howto">
-            <summary>How to play the run</summary>
-            <ol>
-              <li>Steer with the left and right arrow keys, A and D, or the arrow buttons at the bottom of the screen.</li>
-              <li>Bends push the train outward. Steer into a bend as it starts, or you'll run off the track and lose speed.</li>
-              <li>Rocks and crates block the tracks. Move onto a clear track to get past.</li>
-              <li>The monster chases from behind. Watch the mirror at the top. Every time you slow down it gains, and if it reaches the train the run is over.</li>
-              <li>Engine faults stop the train. Fit the right signal boxes and pass the test cycle before the timer runs out. The monster waits while you work, but run out of time and the engine crawls, so it catches up fast.</li>
-              <li>Press P or Escape to pause.</li>
-            </ol>
-          </details>
         </section>
 
         <section aria-labelledby="chain-title" class="chain">
@@ -70,6 +77,37 @@
           <ol id="board-list" class="board-list"></ol>
         </section>
       </main>
+    </div>
+  </div>
+
+  <!-- Controls briefing, shown before each run started from the menu -->
+  <div id="briefing" class="screen" hidden>
+    <div class="wrap brief">
+      <h1>Before you set off</h1>
+      <p id="brief-setup" class="tagline"></p>
+      <div class="brief-grid">
+        <section aria-labelledby="brief-controls">
+          <h2 id="brief-controls">Controls</h2>
+          <dl class="keys">
+            <div><dt><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd></dt><dd>Steer left and right</dd></div>
+            <div><dt>◀ ▶ buttons</dt><dd>Steer on a touch screen: hold the button at the bottom left or right</dd></div>
+            <div><dt><kbd>P</kbd> or <kbd>Esc</kbd></dt><dd>Pause, or press the Pause button at the top</dd></div>
+          </dl>
+        </section>
+        <section aria-labelledby="brief-rules">
+          <h2 id="brief-rules">How to survive</h2>
+          <ul class="rules">
+            <li><strong>Bends:</strong> they push the train outward. Steer into a bend as it starts, or you'll run off the track and slow down.</li>
+            <li><strong>Obstacles:</strong> rocks and crates block the tracks. Move onto a clear track.</li>
+            <li><strong>The monster:</strong> it chases from behind; watch the mirror at the top. It gains whenever you slow down. If it reaches the train, the run is over.</li>
+            <li><strong>Engine faults:</strong> <span id="brief-fault"></span> The monster waits while you work, but if the timer runs out the engine crawls.</li>
+          </ul>
+        </section>
+      </div>
+      <div class="menu-actions">
+        <button type="button" id="go" class="run">Start driving</button>
+        <button type="button" id="brief-back" class="quiet">Back to the menu</button>
+      </div>
     </div>
   </div>
 
@@ -175,7 +213,7 @@
     <div class="repair-head">
       <div>
         <h2 id="repair-title">Engine fault</h2>
-        <p>Fix the signal circuit to restart the engine. The monster waits while you work, but if time runs out the engine crawls.</p>
+        <p><span id="repair-task"></span> The monster waits while you work, but if time runs out the engine crawls.</p>
       </div>
       <p class="timer"><span id="repair-time">0:30</span> left</p>
     </div>
@@ -202,6 +240,7 @@
 
   <script src="logic.js"></script>
   <script src="app.js"></script>
+  <script src="questions.js"></script>
   <script src="solana.js"></script>
   <script src="game.js"></script>
 </body>

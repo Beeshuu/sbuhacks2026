@@ -377,37 +377,53 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && state.part) pick(null);
 });
 
-// The driving game borrows this workshop for engine faults: one plate, a countdown, and a pass or fail.
+// ---- Engine faults (used by game.js) ------------------------------------------
+// One timed pop-up for every kind of fault. mount() fills the pop-up and returns a cleanup function.
+let fault = null;
+
 function endRepair(ok) {
-  const job = state.repair;
-  if (!job) return;
-  state.repair = null;
+  if (!fault) return;
+  const job = fault;
+  fault = null;
   clearInterval(job.tick);
-  Object.assign(state, { running: false, testing: -1 });
-  $('run').textContent = 'Run the test cycle';
   $('repair').close();
-  $('practice-slot').append($('workshop'));
+  job.unmount();
   job.resolve(ok);
 }
 
+// Resolves true when the fault is fixed in time, false when the clock runs out.
+function openRepair(seconds, task, mount) {
+  return new Promise((resolve) => {
+    $('repair-task').textContent = task;
+    const unmount = mount();
+    const deadline = performance.now() + seconds * 1000;
+    const show = () => {
+      const left = Math.max(0, (deadline - performance.now()) / 1000);
+      const whole = Math.ceil(left);
+      $('repair-time').textContent = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+      $('repair-bar').style.width = `${(left / seconds) * 100}%`;
+      if (left <= 0) endRepair(false);
+    };
+    fault = { resolve, unmount, tick: setInterval(show, 100) };
+    show();
+    $('repair').showModal();
+  });
+}
+
+// Circuit faults borrow the practice workshop: it moves into the pop-up, then goes back.
 const Workshop = {
-  // Resolves true when the circuit is fixed in time, false when the clock runs out.
   repair(plate, seconds) {
-    return new Promise((resolve) => {
+    return openRepair(seconds, 'Fix the signal circuit to restart the engine.', () => {
       $('repair-slot').append($('workshop'));
+      state.repair = {}; // marks the workshop as on the clock (see runCycle and win)
       goTo(plate);
-      const deadline = performance.now() + seconds * 1000;
-      const show = () => {
-        const left = Math.max(0, (deadline - performance.now()) / 1000);
-        const whole = Math.ceil(left);
-        $('repair-time').textContent = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
-        $('repair-bar').style.width = `${(left / seconds) * 100}%`;
-        if (left <= 0) endRepair(false);
-      };
-      state.repair = { resolve, tick: setInterval(show, 100) };
-      show();
-      $('repair').showModal();
       say('Engine fault. Fit the right signal boxes, then run the test cycle.');
+      return () => {
+        state.repair = null;
+        Object.assign(state, { running: false, testing: -1 });
+        $('run').textContent = 'Run the test cycle';
+        $('practice-slot').append($('workshop'));
+      };
     });
   },
 };
