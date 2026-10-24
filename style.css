@@ -1,0 +1,197 @@
+/* Light only on purpose: the cream paper and brass plate are the identity (see DESIGN.md). */
+:root {
+  --paper: #f1e9d6;
+  --plate: #e8dcc0;
+  --face: #f8f2e4;
+  --ink: #2b2118;
+  --ink-2: #5a4630;
+  --brass: #8a6420; /* borders and graphics only: 4.43:1 on paper is too low for text */
+  --signal: #a3361f; /* the one accent: main action and gauge needles */
+  --rule: #cdb98d;
+  --display: 'IM Fell English', Georgia, serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.55 'Source Serif 4', Georgia, serif;
+}
+
+.wrap { max-width: 1120px; margin: 0 auto; padding: 24px 16px 56px; }
+
+h1, h2 { font-family: var(--display); font-weight: 400; }
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 4px double var(--brass);
+}
+
+h1 { margin: 0; font-style: italic; font-size: clamp(2.4rem, 6vw, 3.4rem); line-height: 1; }
+.tagline { margin: 6px 0 0; color: var(--ink-2); }
+
+.plates { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.plates button {
+  min-width: 48px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--brass);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: 1.15rem var(--display);
+  cursor: pointer;
+}
+.plates button:hover { background: var(--face); }
+.plates button[aria-current='step'] { background: var(--ink); border-color: var(--ink); color: var(--face); }
+.plates .done { margin-left: 4px; font-family: 'Source Serif 4', Georgia, serif; font-size: 0.95rem; }
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 40px;
+  margin-top: 28px;
+}
+
+.plate-no { margin: 0; color: var(--ink-2); font-family: var(--display); font-size: 1.15rem; }
+.plate-title { margin: 0; font-size: clamp(1.9rem, 4vw, 2.4rem); line-height: 1.1; }
+.order { margin: 10px 0 18px; font-size: 1.12rem; max-width: 60ch; }
+.order-label { font-weight: 600; }
+
+.board { padding: 8px; background: var(--plate); border: 1px solid var(--brass); border-radius: 4px; }
+#board { display: block; width: 100%; height: auto; font-family: 'Source Serif 4', Georgia, serif; }
+
+/* Board pieces */
+.label { font-size: 18px; fill: var(--ink); text-anchor: middle; }
+.state { font-size: 16px; fill: var(--ink-2); text-anchor: middle; font-style: italic; }
+.face { fill: var(--face); stroke: var(--brass); stroke-width: 3; }
+.ring { fill: none; stroke: none; stroke-width: 3; }
+#board [tabindex]:focus { outline: none; } /* replaced by the .ring outline below */
+#board [tabindex]:focus-visible .ring { stroke: var(--ink); }
+.boiler, .slot { cursor: pointer; }
+.boiler:hover .face, .slot:hover .body { stroke: var(--ink); }
+
+.tube { fill: none; stroke: var(--brass); stroke-width: 12; stroke-linejoin: round; }
+.bore { fill: none; stroke: var(--plate); stroke-width: 6; stroke-linejoin: round; }
+.flow { fill: none; stroke: var(--face); stroke-width: 3; stroke-dasharray: 6 10; opacity: 0; }
+.pipe.hot .bore { stroke: var(--brass); }
+.pipe.hot .flow { opacity: 1; animation: flow 0.8s linear infinite; } /* moving dashes show which way steam travels */
+@keyframes flow { to { stroke-dashoffset: -16; } }
+
+.needle {
+  stroke: var(--signal);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: rotate(-60deg);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.boiler.hot .needle { transform: rotate(60deg); }
+.tick { stroke: var(--brass); stroke-width: 2; }
+
+.slot .body { fill: var(--plate); stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 6 5; }
+.slot.filled .body { fill: var(--face); stroke-width: 3; stroke-dasharray: none; }
+.slot .name { font-size: 18px; font-weight: 600; fill: var(--ink); text-anchor: middle; }
+.slot:not(.filled) .name { font-weight: 400; font-style: italic; fill: var(--ink-2); font-size: 15px; }
+.slot.target .body { stroke: var(--ink); stroke-dasharray: none; }
+
+.hub, .rodbar { fill: var(--brass); }
+.head { fill: var(--ink); }
+.rod { transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.piston.fired .rod { transform: translateX(26px); }
+
+/* Drawer and buttons */
+.drawer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.drawer-label { font-weight: 600; }
+.parts { display: flex; flex-wrap: wrap; gap: 8px; }
+
+button { font: inherit; color: inherit; }
+.part, .quiet {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--brass);
+  border-radius: 2px;
+  background: var(--face);
+  cursor: pointer;
+}
+.part { font-weight: 600; cursor: grab; }
+.quiet { background: transparent; }
+.part:hover, .quiet:hover { border-color: var(--ink); }
+.part[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--face); }
+
+.run {
+  margin-left: auto;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--signal);
+  color: var(--face);
+  font-weight: 600;
+  cursor: pointer;
+}
+.run:hover { background: #8c2d19; }
+
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.status { min-height: 1.55em; margin: 12px 0 0; color: var(--ink); }
+
+.howto { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.howto summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+.howto ol { margin: 4px 0 0; padding-left: 1.3em; max-width: 62ch; }
+.howto li + li { margin-top: 4px; }
+
+/* Ledger and lesson */
+aside h2 { margin: 0 0 4px; font-size: 1.6rem; }
+.hint { margin: 0 0 10px; color: var(--ink-2); font-size: 0.95rem; }
+
+#ledger { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 4px; }
+#ledger th, #ledger td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--rule); }
+#ledger th { font-weight: 600; border-bottom: 2px solid var(--brass); }
+#ledger tr.testing td { background: var(--plate); }
+#ledger tr.wrong td { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+#ledger-note { margin-top: 10px; }
+
+#verdict:empty { display: none; }
+#verdict { margin-top: 16px; padding: 16px; background: var(--face); border: 1px solid var(--brass); border-radius: 4px; }
+#verdict p { margin: 0 0 12px; }
+#verdict p:last-child { margin-bottom: 0; }
+#verdict strong { font-family: var(--display); font-weight: 400; font-size: 1.4rem; display: block; }
+
+.lesson { margin-top: 32px; padding-top: 16px; border-top: 4px double var(--brass); }
+.lesson p { margin: 0; }
+
+@media (max-width: 880px) {
+  main { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+}
+@media (max-width: 520px) {
+  .run { margin-left: 0; width: 100%; }
+  .drawer-label { width: 100%; }
+}
+/* The board scales down on phones; bigger SVG text keeps labels near 14px on screen. */
+@media (max-width: 560px) {
+  .label, .slot .name { font-size: 25px; }
+  .state, .slot:not(.filled) .name { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .needle, .rod { transition: none; }
+  .pipe.hot .flow { animation: none; }
+}

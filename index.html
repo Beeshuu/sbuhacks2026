@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Steel Mill</title>
+  <meta name="description" content="A steam-powered puzzle that teaches logic gates. Route steam through AND, OR and NOT valves to fire the piston.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Steel Mill</h1>
+        <p class="tagline">A steam-powered primer on logic gates</p>
+      </div>
+      <nav aria-label="Plates">
+        <ol id="plates" class="plates"></ol>
+      </nav>
+    </header>
+
+    <noscript><p class="status">Steel Mill needs JavaScript to run the steam. Turn it on and reload the page.</p></noscript>
+
+    <main>
+      <section aria-labelledby="plate-title">
+        <p class="plate-no" id="plate-no"></p>
+        <h2 id="plate-title" class="plate-title"></h2>
+        <p class="order"><span class="order-label">The order:</span> <span id="order"></span></p>
+
+        <div class="board">
+          <svg id="board" viewBox="0 0 560 300" role="group" aria-labelledby="plate-title"></svg>
+        </div>
+
+        <div class="drawer" role="group" aria-label="Valve drawer">
+          <span class="drawer-label" id="drawer-label">Valves:</span>
+          <div id="parts" class="parts"></div>
+          <button type="button" id="clear" class="quiet">Clear the valves</button>
+          <button type="button" id="run" class="run">Run the test cycle</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+
+        <details id="howto" class="howto">
+          <summary>How to play</summary>
+          <ol>
+            <li>Pick a valve from the drawer, then choose an empty slot on the board to fit it. You can also drag a valve onto a slot.</li>
+            <li>Choose a slot with no valve picked to take its valve out. Press Escape to put a picked valve back.</li>
+            <li>Click a boiler to light or douse it, and watch where the steam goes.</li>
+            <li>When you think the order is met, run the test cycle. The inspector tries every boiler setting.</li>
+          </ol>
+        </details>
+      </section>
+
+      <aside>
+        <section aria-labelledby="ledger-title" class="ledger">
+          <h2 id="ledger-title">Inspector's ledger</h2>
+          <p class="hint">Each row is one boiler setting and what the order wants the piston to do.</p>
+          <table id="ledger"></table>
+          <p id="ledger-note" class="hint"></p>
+          <div id="verdict"></div>
+        </section>
+
+        <section aria-labelledby="lesson-title" class="lesson">
+          <h2 id="lesson-title"></h2>
+          <p id="lesson-text"></p>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
