@@ -26,3 +26,12 @@ ENERGY 2 / RHYTHM 1 / MOTION 2
 
 ## The run (chase view)
 The camera rides just behind the player's locomotive. Outside the track the world is a sunset over an industrial skyline: indigo to orange sky, a low sun, purple mountains, towers with lit windows and smoking factory chimneys, and evening grass. The track keeps the brass-era colours (ballast, sleepers, dark rails). The locomotive is gunmetal grey with brass bands, rivets, cogs and copper pipes, and the monster mirror is iron and brass with a sunset reflection. HUD panels stay cream cards with ink text so they read over the moving scene. With reduced motion on, screen shake, train bob and smoke animation are off.
+
+## Motion (every animation has a job; all off with reduced motion)
+- The menu and briefing are paper panels over a live demo run that drives itself through the day/night cycle (a still frame with reduced motion).
+- Panels rise in and pop-ups scale in, so you see where you landed.
+- Countdown numbers and event messages pop, and the bend sign slides in, because they need a reaction.
+- The fault notice flashes three times, then holds still. The repair bar turns amber, then red.
+- Wrong coding answers shake, right ones pop. Hits flash amber at the screen edges.
+- The speedometer needle glides, and the loss screen counts the distance up.
+- Buttons lift on hover and press in on click.

@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- The game scene: behind every screen. In the menu it shows a demo run that drives itself. -->
+  <canvas id="view" class="scene" tabindex="-1" role="img" aria-label="Your steam locomotive seen from behind on the tracks ahead, with a mirror showing the monster chasing it"></canvas>
   <noscript><p class="status">Steel junction needs JavaScript to run the trains. Turn it on and reload the page.</p></noscript>
 
   <!-- Main menu -->
@@ -133,7 +135,6 @@
 
   <!-- The run -->
   <div id="drive" class="screen drive" hidden>
-    <canvas id="view" tabindex="-1" role="img" aria-label="Your steam locomotive seen from behind on the tracks ahead, with a mirror showing the monster chasing it"></canvas>
     <div class="hud">
       <div class="hud-group dash">
         <div class="speedo">

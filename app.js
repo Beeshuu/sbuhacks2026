@@ -402,6 +402,9 @@ function openRepair(seconds, task, mount) {
       const whole = Math.ceil(left);
       $('repair-time').textContent = `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
       $('repair-bar').style.width = `${(left / seconds) * 100}%`;
+      // The bar turns amber, then red, as time runs out; the seconds stay visible for anyone who can't tell the colours apart.
+      $('repair-bar').parentElement.classList.toggle('low', left / seconds < 0.35);
+      $('repair-bar').parentElement.classList.toggle('critical', left / seconds < 0.15);
       if (left <= 0) endRepair(false);
     };
     fault = { resolve, unmount, tick: setInterval(show, 100) };

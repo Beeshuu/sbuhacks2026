@@ -502,3 +502,66 @@ kbd {
 .legend { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .legend li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px; align-items: center; margin: 0; }
 .legend svg { width: 40px; height: 40px; }
+
+/* ---- Live scene behind the screens ------------------------------------------ */
+.scene { position: fixed; inset: 0; z-index: 0; }
+.screen { position: relative; z-index: 1; }
+.drive { background: transparent; }
+/* Menu and briefing float as paper panels over the demo run. */
+#menu, #briefing { min-height: 100vh; padding: 28px 16px; }
+#menu > .wrap, #briefing > .wrap {
+  padding: 28px 32px;
+  background: var(--paper);
+  border: 1px solid var(--brass);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(14, 10, 24, 0.5); /* lifts the panel off the moving scene */
+}
+#practice { min-height: 100vh; background: var(--paper); } /* practice needs a calm, plain page */
+@media (max-width: 600px) {
+  #menu, #briefing { padding: 12px 10px; }
+  #menu > .wrap, #briefing > .wrap { padding: 20px 16px; }
+}
+
+/* ---- Feedback on every button ----------------------------------------------- */
+button { transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+.run:hover { box-shadow: 0 3px 0 rgba(43, 33, 24, 0.35); transform: translateY(-1px); }
+button:active { transform: translateY(1px) scale(0.98); box-shadow: none; }
+.mode { transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+.mode:hover { transform: translateY(-1px); }
+
+/* Repair clock: amber, then red as time runs out. */
+.timebar span { transition: width 0.1s linear, background-color 0.3s ease; }
+.timebar.low span { background: #c98a1b; }
+.timebar.critical span { background: var(--signal); }
+
+/* ---- Motion with a job; all of it is off for people who ask for reduced motion -- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Where you landed: panels rise in, pop-ups scale in. */
+  #menu:not([hidden]) > .wrap, #briefing:not([hidden]) > .wrap { animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .topfive li, .board-list li { animation: rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .topfive li:nth-child(2) { animation-delay: 0.05s; }
+  .topfive li:nth-child(3) { animation-delay: 0.1s; }
+  .topfive li:nth-child(4) { animation-delay: 0.15s; }
+  .topfive li:nth-child(5) { animation-delay: 0.2s; }
+  dialog[open], .overlay:not([hidden]) .panel { animation: pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+  dialog[open]::backdrop, .overlay:not([hidden]) { animation: fade 0.3s ease both; }
+
+  /* What to react to: messages and countdown numbers pop, the bend sign slides in. */
+  .callout.pop { animation: callout 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+  .callout.count.pop { animation-duration: 0.5s; }
+  .turn-sign:not([hidden]) { animation: slide 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .gauge.notice:not([hidden]) { animation: alert 0.5s ease-in-out 3; } /* three flashes, then it holds still */
+  .timebar.critical span { animation: alert-bar 0.6s ease-in-out infinite alternate; } /* only in the last 15% of the clock */
+
+  /* Answer feedback in coding faults. */
+  .choice.wrong { animation: shake 0.35s ease; }
+  .choice.right { animation: pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes callout { from { opacity: 0; transform: translateX(-50%) scale(0.7); } to { opacity: 1; transform: translateX(-50%) scale(1); } }
+@keyframes slide { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes alert { 50% { background: var(--signal); border-color: var(--signal); } }
+@keyframes alert-bar { to { opacity: 0.55; } }
+@keyframes shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }

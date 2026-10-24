@@ -83,7 +83,7 @@ function newRun(mode, category) {
     z: 0, x: 0, speed: cfg.maxSpeed * 0.5, gap: 60, time: 0,
     segs: new Array(RING), written: 0, plan: [], lastObstacle: 0,
     faultAt: rand(...FAULT_EVERY), warned: false, pendingFault: 0, pit: null, countdown: 0, resume: '', turn: 0, repairs: 0, hits: 0,
-    paused: null, over: false, shake: 0, callout: null, smoke: [], hills: 0, hud: 0,
+    paused: null, over: false, shake: 0, flash: 0, needle: 0, demo: false, callout: null, smoke: [], hills: 0, hud: 0,
   };
   fillTrack();
 }
@@ -163,11 +163,22 @@ function announce(text) {
   el('drive-live').textContent = text;
 }
 
+// In the menu's demo run the train picks the clear track nearest to it, looking 50 m ahead.
+function demoSteer() {
+  const here = Math.floor((run.z + AHEAD) / SEG);
+  const blocked = new Set();
+  for (let k = 0; k < 50; k++) for (const ob of segAt(here + k).obstacles) blocked.add(ob.x);
+  const target = LANES.filter((l) => !blocked.has(l)).sort((a, b) => Math.abs(a - run.x) - Math.abs(b - run.x))[0] ?? 0;
+  keys.left = run.x > target + 0.04;
+  keys.right = run.x < target - 0.04;
+}
+
 function update(dt) {
   const { cfg } = run;
   const max = cfg.maxSpeed;
   const pct = run.speed / max;
   run.time += dt;
+  if (run.demo) demoSteer();
 
   const before = Math.floor((run.z + AHEAD) / SEG);
   const seg = segAt(before);
@@ -179,7 +190,7 @@ function update(dt) {
   const off = Math.abs(run.x) > 1;
 
   if (off) run.speed = Math.max(max * 0.3, run.speed - max * 1.2 * dt);
-  else run.speed = Math.min(max, run.speed + max * 0.22 * dt);
+  else run.speed = Math.min(max * (run.demo ? 0.75 : 1), run.speed + max * 0.22 * dt);
 
   run.z += run.speed * dt;
   fillTrack();
@@ -190,8 +201,10 @@ function update(dt) {
     for (const ob of segAt(a).obstacles) {
       if (!ob.hit && Math.abs(run.x - ob.x) < HIT_RANGE) {
         ob.hit = true;
+        if (run.demo) continue; // the menu's demo train can't be hurt
         run.hits++;
         run.shake = 1;
+        run.flash = 1;
         if (ob.kind === 'pit') return finish('pit');
         if (ob.kind === 'crate') {
           run.speed *= 0.35;
@@ -213,6 +226,7 @@ function update(dt) {
   }
 
   // The monster wakes up over the first 10 seconds, so the run doesn't open with a loss.
+  if (run.demo) return;
   const chase = cfg.monster * max * Math.min(1, run.time / 10);
   run.gap = Math.min(GAP_MAX, run.gap + ((run.speed - chase) / SEG) * dt);
   if (run.gap <= 0) return finish();
@@ -996,9 +1010,20 @@ function render(dt) {
   }
   drawTrain(w, h);
   stepSmoke(dt, w, h);
-  if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
-  drawMirror(w, h);
+  if (!run.demo) {
+    if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
+    drawMirror(w, h);
+  }
   ctx.restore();
+  // An amber glow at the screen edges on every hit, fading over half a second, so impacts are felt.
+  if (run.flash > 0) {
+    const edge = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
+    edge.addColorStop(0, 'rgba(255, 150, 40, 0)');
+    edge.addColorStop(1, `rgba(255, 150, 40, ${run.flash * 0.55})`);
+    ctx.fillStyle = edge;
+    ctx.fillRect(0, 0, w, h);
+    run.flash = Math.max(0, run.flash - dt * 2);
+  }
 }
 
 // ---- HUD and screens -------------------------------------------------------
@@ -1052,11 +1077,16 @@ function hud() {
   el('hud-distance').textContent = `${Math.floor(run.z / SEG).toLocaleString()} m`;
   const mph = run.speed * MPH_PER_UNIT;
   el('hud-speed').textContent = `${Math.round(mph)} mph`;
-  el('speedo-needle').setAttribute('transform', `rotate(${dialAngle(mph)})`);
   el('hud-gap').textContent = `Monster ${Math.max(0, Math.round(run.gap))} m behind`;
   const counting = run.paused === 'countdown';
   const c = counting ? String(Math.ceil(run.countdown)) : run.callout && run.callout.until > run.time ? run.callout.text : '';
-  if (el('callout').textContent !== c) el('callout').textContent = c;
+  const callout = el('callout');
+  if (callout.textContent !== c) {
+    callout.textContent = c;
+    callout.classList.remove('pop'); // restart the pop-in for each new message or number
+    void callout.offsetWidth;
+    callout.classList.add('pop');
+  }
   el('callout').classList.toggle('count', counting);
   const sign = el('turn-sign');
   sign.hidden = !run.turn || !!run.paused;
@@ -1077,8 +1107,15 @@ function frame(t) {
   else if (run.paused === 'countdown') tickCountdown(dt);
   if (run.over) return;
   render(run.paused === 'menu' ? 0 : dt);
-  run.hud += dt;
-  if (run.hud > 0.1 || run.paused) { run.hud = 0; hud(); }
+  if (run.demo && calm) return; // reduced motion: the menu shows one still frame
+  if (!run.demo) {
+    // The needle eases toward the true speed each frame instead of jumping with the 10 Hz HUD.
+    const mph = run.speed * MPH_PER_UNIT;
+    run.needle = calm ? mph : run.needle + (mph - run.needle) * Math.min(1, dt * 8);
+    el('speedo-needle').setAttribute('transform', `rotate(${dialAngle(run.needle)})`);
+    run.hud += dt;
+    if (run.hud > 0.1 || run.paused) { run.hud = 0; hud(); }
+  }
   raf = requestAnimationFrame(frame);
 }
 
@@ -1137,8 +1174,27 @@ function renderBest() {
   }
 }
 
+// The menu and briefing float over a live scene: an Easy run that drives itself, opening at sunset.
+function startDemo() {
+  newRun('easy', 'circuits');
+  run.demo = true;
+  run.faultAt = Infinity;
+  run.z = 2300 * SEG;
+  run.written = Math.floor(run.z / SEG);
+  fillTrack();
+  run.speed = run.cfg.maxSpeed * 0.75;
+  keys.left = keys.right = false;
+  canvas.setAttribute('aria-hidden', 'true');
+  resize();
+  last = performance.now();
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(frame);
+}
+
 function startRun() {
   newRun(selectedMode(), selectedCategory());
+  keys.left = keys.right = false;
+  canvas.removeAttribute('aria-hidden');
   show('drive');
   resize();
   el('paused').hidden = true;
@@ -1150,6 +1206,19 @@ function startRun() {
   raf = requestAnimationFrame(frame);
 }
 
+// The loss screen's distance counts up from zero. The final number is set first, so it is right
+// even if the timer never runs (and is all that shows with reduced motion).
+function countUp(target, metres) {
+  target.textContent = `${metres.toLocaleString()} m`;
+  if (calm || metres < 1) return;
+  const started = performance.now();
+  const timer = setInterval(() => {
+    const t = Math.min(1, (performance.now() - started) / 900);
+    target.textContent = `${Math.round(metres * (1 - (1 - t) ** 3)).toLocaleString()} m`;
+    if (t === 1) clearInterval(timer);
+  }, 30);
+}
+
 function finish(cause = 'monster') {
   if (run.over) return;
   run.over = true;
@@ -1158,7 +1227,7 @@ function finish(cause = 'monster') {
   const best = loadBest();
   const record = metres > (best[run.mode] || 0);
   if (record) { best[run.mode] = metres; saveBest(best); }
-  el('over-distance').textContent = `${metres.toLocaleString()} m`;
+  countUp(el('over-distance'), metres);
   run.metres = metres;
   const form = el('score-form');
   form.hidden = !makesTopFive(run.mode, metres);
@@ -1172,7 +1241,7 @@ function finish(cause = 'monster') {
 }
 
 function pause(on) {
-  if (!run || run.over || run.paused === 'repair' || run.paused === 'countdown') return;
+  if (!run || run.demo || run.over || run.paused === 'repair' || run.paused === 'countdown') return;
   run.paused = on ? 'menu' : null;
   el('paused').hidden = !on;
   keys.left = keys.right = false;
@@ -1185,6 +1254,7 @@ function toMenu() {
   if (el('over').open) el('over').close();
   renderBest();
   show('menu');
+  startDemo();
   el('start').focus();
 }
 
@@ -1206,7 +1276,7 @@ for (const [id, dir] of [['steer-left', 'left'], ['steer-right', 'right']]) {
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, set(false));
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && run && !run.paused) pause(true); });
-window.addEventListener('resize', () => { if (!el('drive').hidden) resize(); });
+window.addEventListener('resize', resize);
 
 el('start').addEventListener('click', showBriefing);
 for (const input of document.querySelectorAll('input[name="difficulty"]')) input.addEventListener('change', renderBoard);
@@ -1242,7 +1312,11 @@ el('over').addEventListener('cancel', (e) => { e.preventDefault(); toMenu(); });
 el('pause-btn').addEventListener('click', () => pause(true));
 el('resume').addEventListener('click', () => pause(false));
 el('quit').addEventListener('click', toMenu);
-el('to-practice').addEventListener('click', () => { show('practice'); el('practice-back').focus(); });
+el('to-practice').addEventListener('click', () => {
+  cancelAnimationFrame(raf); // the scene is hidden behind the practice screen
+  show('practice');
+  el('practice-back').focus();
+});
 el('practice-back').addEventListener('click', toMenu);
 
 // ---- Solana ------------------------------------------------------------------
@@ -1288,6 +1362,7 @@ el('board-load').addEventListener('click', async () => {
 });
 
 renderBest();
+startDemo();
 // Test hook for driving the game from the browser console; only exists when the URL ends in #debug.
 if (location.hash === '#debug') window.sjDebug = { get run() { return run; }, keys, segAt: (a) => segAt(a), SEG, AHEAD };
 })();
