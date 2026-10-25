@@ -535,6 +535,7 @@ kbd {
 .mute input { width: 20px; height: 20px; margin: 0; accent-color: var(--signal); }
 #practice { min-height: 100vh; background: var(--paper); } /* practice needs a calm, plain page */
 .practice-mode { display: flex; gap: 6px; margin-top: 14px; }
+.practice-level { margin: 0 0 8px; }
 .practice-mode [aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--face); }
 .coding-practice { padding-top: 18px; max-width: 760px; }
 .coding-practice .run { margin: 12px 0 0; }

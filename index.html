@@ -67,7 +67,7 @@
           </fieldset>
           <div class="menu-actions">
             <button type="button" id="start" class="run">Start the run</button>
-            <button type="button" id="to-practice" class="quiet">Practice the Questions</button>
+            <button type="button" id="to-practice" class="quiet">Practice Questions</button>
           </div>
         </section>
 
@@ -189,6 +189,11 @@
           <ol id="plates" class="plates"></ol>
         </nav>
         <nav aria-label="Coding questions" id="questions-nav" hidden>
+          <div class="practice-mode practice-level" role="group" aria-label="Difficulty">
+            <button type="button" class="quiet" data-level="easy" aria-pressed="true">Easy</button>
+            <button type="button" class="quiet" data-level="medium" aria-pressed="false">Medium</button>
+            <button type="button" class="quiet" data-level="hard" aria-pressed="false">Hard</button>
+          </div>
           <ol id="questions" class="plates"></ol>
         </nav>
       </header>

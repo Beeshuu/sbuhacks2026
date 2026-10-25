@@ -83,25 +83,30 @@ const Quiz = {
   },
 };
 
-// Practice: a switch between the circuit plates and every coding question, numbered by difficulty.
+// Practice: a switch between the circuit plates and the coding questions. Coding has Easy, Medium and
+// Hard selectors, then a numbered button for every question at the chosen difficulty.
 if (typeof document !== 'undefined') {
-  const ALL = ['easy', 'medium', 'hard'].flatMap((level) => CODING[level].map((q, i) => ({ q, level, n: i + 1 })));
   const label = (level) => level[0].toUpperCase() + level.slice(1);
-  const buttons = ALL.map(({ level, n }, i) => {
-    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: `${label(level)[0]}${n}` });
-    b.setAttribute('aria-label', `${label(level)} question ${n}`);
-    b.addEventListener('click', () => showQuestion(i));
-    const li = document.createElement('li');
-    li.append(b);
-    $('questions').append(li);
-    return b;
-  });
+  let level = 'easy';
+  let buttons = [];
+  function showLevel(next) {
+    level = next;
+    for (const b of document.querySelectorAll('[data-level]')) b.setAttribute('aria-pressed', String(b.dataset.level === level));
+    buttons = CODING[level].map((q, i) => {
+      const b = Object.assign(document.createElement('button'), { type: 'button', textContent: String(i + 1) });
+      b.setAttribute('aria-label', `${label(level)} question ${i + 1}`);
+      b.addEventListener('click', () => showQuestion(i));
+      return b;
+    });
+    $('questions').replaceChildren(...buttons.map((b) => { const li = document.createElement('li'); li.append(b); return li; }));
+    showQuestion(0);
+  }
   function showQuestion(i) {
-    const { q, level, n } = ALL[i];
+    const list = CODING[level];
     buttons.forEach((b, k) => (k === i ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
-    $('coding-no').textContent = `${label(level)} question ${n} of ${CODING[level].length}`;
-    const panel = quizPanel(q, (note) => {
-      if (i + 1 >= ALL.length) return;
+    $('coding-no').textContent = `${label(level)} question ${i + 1} of ${list.length}`;
+    const panel = quizPanel(list[i], (note) => {
+      if (i + 1 >= list.length) return;
       const next = Object.assign(document.createElement('button'), { type: 'button', className: 'run', textContent: 'Next question' });
       next.addEventListener('click', () => { showQuestion(i + 1); $('coding-slot').querySelector('.choice').focus(); });
       note.after(next);
@@ -109,6 +114,7 @@ if (typeof document !== 'undefined') {
     }, false);
     $('coding-slot').replaceChildren(panel);
   }
+  for (const b of document.querySelectorAll('[data-level]')) b.addEventListener('click', () => showLevel(b.dataset.level));
   for (const b of document.querySelectorAll('[data-practice]')) {
     b.addEventListener('click', () => {
       const coding = b.dataset.practice === 'coding';
@@ -119,7 +125,7 @@ if (typeof document !== 'undefined') {
       $('questions-nav').hidden = !coding;
     });
   }
-  showQuestion(0);
+  showLevel('easy');
 }
 
 if (typeof module !== 'undefined') module.exports = { CODING };
