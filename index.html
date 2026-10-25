@@ -67,7 +67,7 @@
           </fieldset>
           <div class="menu-actions">
             <button type="button" id="start" class="run">Start the run</button>
-            <button type="button" id="to-practice" class="quiet">Practice the signal boxes</button>
+            <button type="button" id="to-practice" class="quiet">Practice the Questions</button>
           </div>
         </section>
 
@@ -178,11 +178,18 @@
       <header>
         <div>
           <button type="button" id="practice-back" class="quiet back">Main menu</button>
-          <h1>Signal Box Practice</h1>
-          <p class="tagline">The same circuits you'll fix in an engine fault, with no clock running.</p>
+          <h1>Question Practice</h1>
+          <p class="tagline">Every question from the engine faults, with no clock running.</p>
+          <div class="practice-mode" role="group" aria-label="Question type">
+            <button type="button" class="quiet" data-practice="circuits" aria-pressed="true">Circuits</button>
+            <button type="button" class="quiet" data-practice="coding" aria-pressed="false">Coding</button>
+          </div>
         </div>
-        <nav aria-label="Plates">
+        <nav aria-label="Plates" id="plates-nav">
           <ol id="plates" class="plates"></ol>
+        </nav>
+        <nav aria-label="Coding questions" id="questions-nav" hidden>
+          <ol id="questions" class="plates"></ol>
         </nav>
       </header>
 
@@ -232,6 +239,11 @@
           </aside>
         </main>
       </div>
+      <section id="coding-practice" class="coding-practice" aria-labelledby="coding-title" hidden>
+        <p class="plate-no" id="coding-no"></p>
+        <h2 id="coding-title" class="plate-title">What Does This Print?</h2>
+        <div id="coding-slot"></div>
+      </section>
     </div>
   </div>
 

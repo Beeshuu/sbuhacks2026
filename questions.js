@@ -34,18 +34,18 @@ const CODING = {
   ],
 };
 
-// Turns a coding question into a timed fault in the shared repair pop-up (openRepair lives in app.js).
-const Quiz = {
-  repair(q, seconds) {
-    return openRepair(seconds, 'Debug the engine\'s control code: pick what this Python prints.', () => {
+// One question as a panel: the code, four answer buttons and a note. onRight runs once the right answer is picked.
+// Without a heading it is labelled by the practice page's own heading (coding-title).
+function quizPanel(q, onRight, heading = true) {
+      const labelId = heading ? 'quiz-title' : 'coding-title';
       const panel = Object.assign(document.createElement('section'), { className: 'quiz' });
-      panel.setAttribute('aria-labelledby', 'quiz-title');
+      panel.setAttribute('aria-labelledby', labelId);
       const title = Object.assign(document.createElement('h3'), { id: 'quiz-title', textContent: 'What Does This Print?' });
       const code = document.createElement('pre');
       code.append(Object.assign(document.createElement('code'), { textContent: q.code }));
       const list = Object.assign(document.createElement('div'), { className: 'choices' });
       list.setAttribute('role', 'group');
-      list.setAttribute('aria-labelledby', 'quiz-title');
+      list.setAttribute('aria-labelledby', labelId);
       const note = Object.assign(document.createElement('p'), { className: 'quiz-note' });
       note.setAttribute('role', 'status');
       let done = false;
@@ -57,7 +57,7 @@ const Quiz = {
             done = true;
             b.classList.add('right');
             note.textContent = `Correct. ${q.why}`;
-            setTimeout(() => endRepair(true), 900); // long enough to read the reason
+            onRight(note);
           } else {
             b.classList.add('wrong');
             b.setAttribute('aria-label', `${text}, wrong`);
@@ -66,12 +66,60 @@ const Quiz = {
         });
         list.append(b);
       });
-      panel.append(title, code, list, note);
+      if (heading) panel.append(title);
+      panel.append(code, list, note);
+      return panel;
+}
+
+// Turns a coding question into a timed fault in the shared repair pop-up (openRepair lives in app.js).
+const Quiz = {
+  repair(q, seconds) {
+    return openRepair(seconds, 'Debug the engine\'s control code: pick what this Python prints.', () => {
+      const panel = quizPanel(q, () => setTimeout(() => endRepair(true), 900)); // long enough to read the reason
       $('repair-slot').append(panel);
-      list.firstChild.focus();
+      panel.querySelector('.choice').focus();
       return () => panel.remove();
     });
   },
 };
+
+// Practice: a switch between the circuit plates and every coding question, numbered by difficulty.
+if (typeof document !== 'undefined') {
+  const ALL = ['easy', 'medium', 'hard'].flatMap((level) => CODING[level].map((q, i) => ({ q, level, n: i + 1 })));
+  const label = (level) => level[0].toUpperCase() + level.slice(1);
+  const buttons = ALL.map(({ level, n }, i) => {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: `${label(level)[0]}${n}` });
+    b.setAttribute('aria-label', `${label(level)} question ${n}`);
+    b.addEventListener('click', () => showQuestion(i));
+    const li = document.createElement('li');
+    li.append(b);
+    $('questions').append(li);
+    return b;
+  });
+  function showQuestion(i) {
+    const { q, level, n } = ALL[i];
+    buttons.forEach((b, k) => (k === i ? b.setAttribute('aria-current', 'step') : b.removeAttribute('aria-current')));
+    $('coding-no').textContent = `${label(level)} question ${n} of ${CODING[level].length}`;
+    const panel = quizPanel(q, (note) => {
+      if (i + 1 >= ALL.length) return;
+      const next = Object.assign(document.createElement('button'), { type: 'button', className: 'run', textContent: 'Next question' });
+      next.addEventListener('click', () => { showQuestion(i + 1); $('coding-slot').querySelector('.choice').focus(); });
+      note.after(next);
+      next.focus();
+    }, false);
+    $('coding-slot').replaceChildren(panel);
+  }
+  for (const b of document.querySelectorAll('[data-practice]')) {
+    b.addEventListener('click', () => {
+      const coding = b.dataset.practice === 'coding';
+      for (const o of document.querySelectorAll('[data-practice]')) o.setAttribute('aria-pressed', String(o === b));
+      $('practice-slot').hidden = coding;
+      $('plates-nav').hidden = coding;
+      $('coding-practice').hidden = !coding;
+      $('questions-nav').hidden = !coding;
+    });
+  }
+  showQuestion(0);
+}
 
 if (typeof module !== 'undefined') module.exports = { CODING };

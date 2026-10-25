@@ -9,7 +9,7 @@ An endless steamboat run down a river, seen from just behind your paddle steamer
 - A controls briefing before every run started from the menu.
 - A day/night cycle that turns from day to sunset, night and dawn every 5,000 m.
 - A top-5 leaderboard per difficulty: runs that make it ask for a username on the loss screen.
-- Signal box practice: all 11 circuits with no clock running.
+- Question practice: all 11 circuits and all 24 coding questions with no clock running, switched with a Circuits / Coding toggle.
 - Solana: finished runs can be recorded on the Solana devnet with a Phantom wallet. Each record is one transaction (a 0-lamport transfer that tags the leaderboard address, plus a Memo instruction `SJ1|<difficulty>|<metres>|<name>`). The menu's devnet leaderboard shows the top 5. The menu's leaderboard reads those transactions back from the chain. Devnet only, so it uses free test SOL.
 
 Run it: open `index.html` in a browser, or serve the folder (`python -m http.server`). No build step.
