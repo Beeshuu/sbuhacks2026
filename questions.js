@@ -40,7 +40,7 @@ const Quiz = {
     return openRepair(seconds, 'Debug the engine\'s control code: pick what this Python prints.', () => {
       const panel = Object.assign(document.createElement('section'), { className: 'quiz' });
       panel.setAttribute('aria-labelledby', 'quiz-title');
-      const title = Object.assign(document.createElement('h3'), { id: 'quiz-title', textContent: 'What does this print?' });
+      const title = Object.assign(document.createElement('h3'), { id: 'quiz-title', textContent: 'What Does This Print?' });
       const code = document.createElement('pre');
       code.append(Object.assign(document.createElement('code'), { textContent: q.code }));
       const list = Object.assign(document.createElement('div'), { className: 'choices' });

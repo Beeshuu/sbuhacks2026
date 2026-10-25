@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Logical steam</title>
+  <title>Logical Steam</title>
   <meta name="description" content="Steer the last steamboat down the river while a monster chases you. Steer through bends, dodge obstacles, and fix engine faults by wiring AND, OR, NOT and XOR signal boxes.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,20 +12,20 @@
 </head>
 <body>
   <!-- The game scene: behind every screen. In the menu it shows a demo run that drives itself. -->
-  <canvas id="view" class="scene" tabindex="-1" role="img" aria-label="Your steamboat seen from behind on the river ahead, with a mirror showing the monster chasing it"></canvas>
-  <noscript><p class="status">Logical steam needs JavaScript to run the boats. Turn it on and reload the page.</p></noscript>
+  <canvas id="view" class="scene" tabindex="-1" role="img" aria-label="Your steamboat seen from behind on the river ahead, with a mirror showing the kraken chasing it"></canvas>
+  <noscript><p class="status">Logical Steam needs JavaScript to run the boats. Turn it on and reload the page.</p></noscript>
 
   <!-- Main menu -->
   <div id="menu" class="screen">
     <div class="wrap menu">
       <header class="menu-head">
-        <h1>Logical steam</h1>
+        <h1>Logical Steam</h1>
         <p class="tagline">Steer the last steamboat out of the city. Keep the engine running. Don't let it catch you.</p>
       </header>
 
       <main class="menu-main">
         <section aria-labelledby="run-title">
-          <h2 id="run-title">Endless run</h2>
+          <h2 id="run-title">Endless Run</h2>
           <fieldset class="difficulty">
             <legend>Choose a difficulty</legend>
             <label class="mode">
@@ -37,13 +37,13 @@
             <label class="mode">
               <input type="radio" name="difficulty" value="medium">
               <span class="mode-name">Medium</span>
-              <span class="mode-text">Sharper bends, more obstacles, a faster monster, 32 seconds for each repair.</span>
+              <span class="mode-text">Sharper bends, more obstacles, a faster kraken, 32 seconds for each repair.</span>
               <span class="mode-best" id="best-medium"></span>
             </label>
             <label class="mode">
               <input type="radio" name="difficulty" value="hard">
               <span class="mode-name">Hard</span>
-              <span class="mode-text">Tight bends, crowded water, a relentless monster, 26 seconds for each repair, the hardest questions.</span>
+              <span class="mode-text">Tight bends, crowded water, a relentless kraken, 26 seconds for each repair, the hardest questions.</span>
               <span class="mode-best" id="best-hard"></span>
             </label>
           </fieldset>
@@ -80,7 +80,7 @@
         </section>
 
         <section aria-labelledby="chain-title" class="chain">
-          <h2 id="chain-title">Devnet leaderboard</h2>
+          <h2 id="chain-title">Devnet Leaderboard</h2>
           <p class="hint">Put your best saved run for the selected difficulty on the Solana devnet with a Phantom wallet, under your leaderboard name. Devnet uses free test SOL. The top 5 is read straight from the chain, so every entry links to its transaction.</p>
           <div class="menu-actions">
             <button type="button" id="board-load" class="quiet">Load the leaderboard</button>
@@ -98,31 +98,30 @@
   <!-- Controls briefing, shown before each run started from the menu -->
   <div id="briefing" class="screen" hidden>
     <div class="wrap brief">
-      <h1>Before you set off</h1>
+      <h1>Before You Set Off</h1>
       <p id="brief-setup" class="tagline"></p>
       <div class="brief-grid">
         <section aria-labelledby="brief-controls">
           <h2 id="brief-controls">Controls</h2>
           <dl class="keys">
-            <div><dt><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd></dt><dd>Steer left and right</dd></div>
-            <div><dt>◀ ▶ buttons</dt><dd>Steer on a touch screen: hold the button at the bottom left or right</dd></div>
-            <div><dt><kbd>P</kbd> or <kbd>Esc</kbd></dt><dd>Pause, or press the Pause button at the top</dd></div>
+            <div><dt><kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd></dt><dd>Steer</dd></div>
+            <div><dt>◀ ▶ buttons</dt><dd>Steer on a touch screen</dd></div>
+            <div><dt><kbd>P</kbd> or <kbd>Esc</kbd></dt><dd>Pause</dd></div>
           </dl>
+          <label class="mute"><input type="checkbox" id="mute"> Mute all sound</label>
         </section>
         <section aria-labelledby="brief-rules">
-          <h2 id="brief-rules">How to survive</h2>
+          <h2 id="brief-rules">How to Survive</h2>
           <ul class="rules">
-            <li><strong>Bends:</strong> a sign on the right shows which way the next bend turns. Bends push the boat toward the outer bank, so steer into one as it starts, or you'll scrape along the bank and slow down.</li>
-            <li><strong>Obstacles:</strong> steer into a clear lane. There is always at least one.
-              <ul class="legend">
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="22" fill="#a87a3e"/><path d="M8 13 H32 M8 20 H32" stroke="#3a3d42" stroke-width="3"/><path d="M10 8 V30 M30 8 V30" stroke="#3a3d42" stroke-width="3"/><rect x="8" y="8" width="24" height="22" fill="none" stroke="#2b2118" stroke-width="2.5"/><rect x="2" y="26" width="36" height="12" fill="#3f7fa8"/><path d="M3 27 Q20 22 37 27" stroke="#f4fbff" stroke-width="2" fill="none"/></svg><span><strong>Floating crate:</strong> slows you down.</span></li>
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M2 36 Q10 14 22 10 Q34 8 31 20 Q27 16 25 22 Q32 32 38 36 Z" fill="#4f9ccd"/><path d="M10 18 Q22 6 31 20" stroke="#f4fbff" stroke-width="3.5" fill="none" stroke-linecap="round"/></svg><span><strong>Wave:</strong> damages the engine. A question opens straight away.</span></li>
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M5 31 L6 20 L12 11 L18 8 L23 5 L28 11 L32 18 L35 31 Z" fill="#5e5a52" stroke="#2b2118" stroke-width="2.5" stroke-linejoin="round"/><path d="M12 11 L18 8 L17 18 L10 21 Z" fill="#a8a092"/><ellipse cx="20" cy="8" rx="5" ry="2" fill="#5d7a3a"/><rect x="2" y="27" width="36" height="11" fill="#3f7fa8"/><path d="M3 28 Q20 23 37 28" stroke="#f4fbff" stroke-width="2" fill="none"/></svg><span><strong>River rock:</strong> slows you down and damages the engine. A question opens 3 seconds later.</span></li>
-                <li><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="18" ry="12" fill="#0f2a44"/><path d="M38 20 A18 12 0 0 0 6 14 M32 20 A12 8 0 0 0 11 16 M26 20 A6 4 0 0 0 16 18" stroke="#f4fbff" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span><strong>Whirlpool:</strong> it drags the boat under. Steer into one and the run is over.</span></li>
-              </ul>
-            </li>
-            <li><strong>The monster:</strong> it chases from behind; watch the mirror at the top. It gains whenever you slow down. If it reaches the boat, the run is over.</li>
-            <li><strong>Engine faults:</strong> one comes every 750 to 1,500 m, and an "Engine trouble ahead" notice warns you first. <span id="brief-fault"></span> The monster waits while you work, but if the timer runs out the engine crawls. A 3-second countdown follows every repair.</li>
+            <li><strong>Bends:</strong> steer into them, or you scrape the bank and slow down.</li>
+            <li><strong>The kraken:</strong> it gains when you slow down. Watch the mirror.</li>
+            <li><strong>Engine faults:</strong> <span id="brief-fault"></span> Beat the timer.</li>
+          </ul>
+          <ul class="legend">
+            <li><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="8" y="8" width="24" height="22" fill="#a87a3e"/><path d="M8 13 H32 M8 20 H32" stroke="#3a3d42" stroke-width="3"/><path d="M10 8 V30 M30 8 V30" stroke="#3a3d42" stroke-width="3"/><rect x="8" y="8" width="24" height="22" fill="none" stroke="#2b2118" stroke-width="2.5"/><rect x="2" y="26" width="36" height="12" fill="#3f7fa8"/><path d="M3 27 Q20 22 37 27" stroke="#f4fbff" stroke-width="2" fill="none"/></svg><span><strong>Crate:</strong> slows you down.</span></li>
+            <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M2 36 Q10 14 22 10 Q34 8 31 20 Q27 16 25 22 Q32 32 38 36 Z" fill="#4f9ccd"/><path d="M10 18 Q22 6 31 20" stroke="#f4fbff" stroke-width="3.5" fill="none" stroke-linecap="round"/></svg><span><strong>Wave:</strong> breaks the engine.</span></li>
+            <li><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M5 31 L6 20 L12 11 L18 8 L23 5 L28 11 L32 18 L35 31 Z" fill="#5e5a52" stroke="#2b2118" stroke-width="2.5" stroke-linejoin="round"/><path d="M12 11 L18 8 L17 18 L10 21 Z" fill="#a8a092"/><ellipse cx="20" cy="8" rx="5" ry="2" fill="#5d7a3a"/><rect x="2" y="27" width="36" height="11" fill="#3f7fa8"/><path d="M3 28 Q20 23 37 28" stroke="#f4fbff" stroke-width="2" fill="none"/></svg><span><strong>Rock:</strong> slows you, then breaks the engine.</span></li>
+            <li><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="18" ry="12" fill="#0f2a44"/><path d="M38 20 A18 12 0 0 0 6 14 M32 20 A12 8 0 0 0 11 16 M26 20 A6 4 0 0 0 16 18" stroke="#f4fbff" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span><strong>Whirlpool:</strong> ends the run.</span></li>
           </ul>
         </section>
       </div>
@@ -147,7 +146,7 @@
         </div>
       </div>
       <div class="hud-group">
-        <span id="hud-gap" class="sr-only">Monster 60 m behind</span>
+        <span id="hud-gap" class="sr-only">Kraken 60 m behind</span>
         <button type="button" id="pause-btn" class="quiet hud-button">Pause</button>
       </div>
     </div>
@@ -164,7 +163,7 @@
     <div id="paused" class="overlay" hidden>
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="paused-title">
         <h2 id="paused-title">Paused</h2>
-        <p>The monster is waiting too.</p>
+        <p>The kraken is waiting too.</p>
         <div class="menu-actions">
           <button type="button" id="resume" class="run">Keep sailing</button>
           <button type="button" id="quit" class="quiet">Leave to the main menu</button>
@@ -179,7 +178,7 @@
       <header>
         <div>
           <button type="button" id="practice-back" class="quiet back">Main menu</button>
-          <h1>Signal box practice</h1>
+          <h1>Signal Box Practice</h1>
           <p class="tagline">The same circuits you'll fix in an engine fault, with no clock running.</p>
         </div>
         <nav aria-label="Plates">
@@ -207,7 +206,7 @@
             <p id="status" class="status" role="status" aria-live="polite"></p>
 
             <details id="howto" class="howto">
-              <summary>How to fix a circuit</summary>
+              <summary>How to Fix a Circuit</summary>
               <ol>
                 <li>Pick a signal box from the drawer, then choose an empty slot on the board to fit it. You can also drag a box onto a slot.</li>
                 <li>Choose a slot with nothing picked to take its box out. Press Escape to put a picked box back.</li>
@@ -219,7 +218,7 @@
 
           <aside>
             <section aria-labelledby="ledger-title" class="ledger">
-              <h2 id="ledger-title">Inspector's ledger</h2>
+              <h2 id="ledger-title">Inspector's Ledger</h2>
               <p class="hint">Each row is one mix of engines and what the order wants the steamboat to do.</p>
               <table id="ledger"></table>
               <p id="ledger-note" class="hint"></p>
@@ -240,8 +239,8 @@
   <dialog id="repair" class="repair" aria-labelledby="repair-title">
     <div class="repair-head">
       <div>
-        <h2 id="repair-title">Engine fault</h2>
-        <p><span id="repair-task"></span> The monster waits while you work, but if time runs out the engine crawls.</p>
+        <h2 id="repair-title">Engine Fault</h2>
+        <p><span id="repair-task"></span> The kraken waits while you work, but if time runs out the engine crawls.</p>
       </div>
       <p class="timer"><span id="repair-time">0:30</span> left</p>
     </div>
@@ -251,7 +250,7 @@
 
   <!-- End of a run -->
   <dialog id="over" class="over" aria-labelledby="over-title">
-    <h2 id="over-title">You lost!</h2>
+    <h2 id="over-title">You Lost!</h2>
     <p class="over-distance"><span class="gauge-label">Distance</span> <span id="over-distance">0 m</span></p>
     <form id="score-form" class="score-form" hidden novalidate>
       <label for="score-name">New top 5 run! Your name for the leaderboard</label>
@@ -268,6 +267,7 @@
     </div>
   </dialog>
 
+  <script src="sound.js"></script>
   <script src="logic.js"></script>
   <script src="app.js"></script>
   <script src="questions.js"></script>

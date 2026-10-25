@@ -209,6 +209,7 @@ function update(dt) {
         run.shake = 1;
         run.flash = 1;
         if (ob.kind === 'whirlpool') return finish('whirlpool');
+        Sound.fx[ob.kind]();
         if (ob.kind === 'crate') {
           run.speed *= 0.35;
           shout('Hit a floating crate! Speed lost.');
@@ -234,7 +235,10 @@ function update(dt) {
   run.gap = Math.min(GAP_MAX, run.gap + ((run.speed - chase) / SEG) * dt);
   if (run.gap <= 0) return finish();
 
-  if (off) say('Scraping the bank! Steer back.');
+  if (off) {
+    say('Scraping the bank! Steer back.');
+    if (run.time - (run.scraped || 0) > 0.3) { run.scraped = run.time; Sound.fx.scrape(); }
+  }
   else if (Math.abs(seg.curve) > 0.5 && Math.abs(run.x) > 0.7 && run.x * seg.curve < 0) say(`Steer ${seg.curve > 0 ? 'right' : 'left'}!`);
   run.turn = 0;
   for (let k = 0; k < 70 && !run.turn; k++) {
@@ -248,6 +252,7 @@ function update(dt) {
   const metres = run.z / SEG;
   if (!run.warned && run.faultAt - metres < FAULT_WARN) {
     run.warned = true;
+    Sound.fx.bell();
     shout('Engine trouble ahead! Get ready.', 2.2);
     announce('Engine trouble ahead. A fault is coming up.');
   }
@@ -260,10 +265,12 @@ function tickCountdown(dt) {
   run.countdown -= dt;
   if (run.countdown <= 0) {
     run.paused = null;
+    Sound.fx.whistle();
     shout(run.resume, 1.6);
     hud(); // swap the last number for the message right away, not on the next HUD tick
     canvas.focus();
   } else if (Math.ceil(run.countdown) !== shown) {
+    Sound.fx.tick();
     announce(String(Math.ceil(run.countdown)));
   }
 }
@@ -282,6 +289,7 @@ async function startRepair() {
   run.faultAt = run.z / SEG + rand(...FAULT_EVERY);
   run.warned = false;
   last = performance.now();
+  Sound.fx[ok ? 'fixed' : 'failed']();
   if (ok) {
     run.repairs++;
     run.resume = 'Full steam!';
@@ -306,6 +314,7 @@ function nextQuestion() {
 // A full cycle (day, sunset, night, dawn) every CYCLE metres. Each key is a moment in the cycle (0 to 1)
 // and the colours of the sky, the land and the river; in between, every colour blends smoothly.
 const CYCLE = 5000;
+const START_AT = 3500; // metres into the cycle where a run begins: deep night
 const DAY = { water: '#3f7fa8', bank: '#8a7a52', top: '#3f7fc4', mid: '#6fa6dc', low: '#a9d0ee', hz: '#d6e9f2', far: '#9db2c7', city: '#6b6f7a', ridge: '#5f8c45', ground: '#79a650', cloud: '#ffffff', cloudA: 0.92, dark: 0, lights: 0.1 };
 const SUNSET = { water: '#5a4d78', bank: '#5e4a3a', top: '#2b2a5c', mid: '#8a3f6b', low: '#e8734a', hz: '#f6b26b', far: '#7a5577', city: '#3b2b3e', ridge: '#4a3b3a', ground: '#5f6e33', cloud: '#f8a882', cloudA: 0.9, dark: 0.3, lights: 0.8 };
 const NIGHT = { water: '#16264a', bank: '#262620', top: '#0b1030', mid: '#141a45', low: '#22285a', hz: '#303868', far: '#2a2f4a', city: '#161828', ridge: '#1e2420', ground: '#2b3a22', cloud: '#4a5274', cloudA: 0.6, dark: 1, lights: 1 };
@@ -319,7 +328,7 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 
 // The sky palette at this distance; every colour is an [r, g, b] array.
 function skyAt(metres) {
-  const u = (metres % CYCLE) / CYCLE;
+  const u = ((metres + START_AT) % CYCLE) / CYCLE;
   let k = 0;
   while (u > SKY_KEYS[k + 1][0]) k++;
   const [u0, a] = SKY_KEYS[k];
@@ -813,36 +822,81 @@ function drawTrack(w, h) {
   }
 }
 
-function drawMonster(cx, baseY, size) {
-  ctx.fillStyle = C.ink;
+// The monster is a black kraken. One tapering tentacle: `width` thick at (x, y), heading off at angle `a`
+// (radians, 0 = right), curling by `curl` toward its tip; `phase` makes it writhe. Big ones get suckers.
+const KRAKEN = '#0b0b12';
+
+function tentacle(x, y, len, a, curl, width, phase) {
+  const n = 14;
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const dir = a + curl * t * t + Math.sin(t * 5 + phase) * 0.35 * t;
+    pts.push([x, y, dir, width * (1 - t * 0.9)]);
+    x += (Math.cos(dir) * len) / n;
+    y += (Math.sin(dir) * len) / n;
+  }
+  const side = (k) => ([px, py, d, wd]) => ctx.lineTo(px + Math.cos(d + Math.PI / 2) * wd * k, py + Math.sin(d + Math.PI / 2) * wd * k);
+  ctx.fillStyle = KRAKEN;
   ctx.beginPath();
-  ctx.ellipse(cx, baseY - size * 0.42, size * 0.5, size * 0.42, 0, 0, Math.PI * 2);
+  pts.forEach(side(0.5));
+  pts.slice().reverse().forEach(side(-0.5));
+  ctx.closePath();
+  ctx.fill();
+  if (width < 8) return;
+  ctx.fillStyle = '#34344a';
+  for (let i = 2; i < n - 2; i += 2) {
+    const [px, py, d, wd] = pts[i];
+    ctx.beginPath();
+    ctx.arc(px + Math.cos(d - Math.PI / 2) * wd * 0.28, py + Math.sin(d - Math.PI / 2) * wd * 0.28, wd * 0.14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// The kraken in the mirror: a domed black head with a faint sheen, glowing amber eyes with slit pupils,
+// and six tentacles rising from the water either side.
+function drawMonster(cx, baseY, size) {
+  const t = calm ? 0 : run.time;
+  for (let i = 0; i < 6; i++) {
+    const side = i < 3 ? -1 : 1;
+    const k = i % 3; // 0 nearest the head, 2 furthest out
+    tentacle(cx + side * size * (0.12 + k * 0.08), baseY, size * (0.75 - k * 0.1), -Math.PI / 2 + side * (0.35 + k * 0.4), -side * 1.6, size * 0.13, t * 2 + i);
+  }
+  const head = ctx.createRadialGradient(cx - size * 0.1, baseY - size * 0.8, size * 0.02, cx, baseY - size * 0.55, size * 0.55);
+  head.addColorStop(0, '#3a3a52');
+  head.addColorStop(0.4, '#15151f');
+  head.addColorStop(1, KRAKEN);
+  ctx.fillStyle = head;
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.3, baseY - size * 0.15);
+  ctx.bezierCurveTo(cx - size * 0.38, baseY - size * 0.75, cx - size * 0.2, baseY - size * 1.08, cx, baseY - size * 1.08);
+  ctx.bezierCurveTo(cx + size * 0.2, baseY - size * 1.08, cx + size * 0.38, baseY - size * 0.75, cx + size * 0.3, baseY - size * 0.15);
+  ctx.closePath();
   ctx.fill();
   for (const s of [-1, 1]) {
+    const ex = cx + s * size * 0.14;
+    const ey = baseY - size * 0.42;
+    const glow = ctx.createRadialGradient(ex, ey, 0, ex, ey, size * 0.13);
+    glow.addColorStop(0, 'rgba(255, 190, 60, 0.6)');
+    glow.addColorStop(1, 'rgba(255, 190, 60, 0)');
+    ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.moveTo(cx + s * size * 0.22, baseY - size * 0.7);
-    ctx.lineTo(cx + s * size * 0.42, baseY - size * 1.05);
-    ctx.lineTo(cx + s * size * 0.36, baseY - size * 0.62);
+    ctx.arc(ex, ey, size * 0.13, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#ffcf5a';
     ctx.beginPath();
-    ctx.ellipse(cx + s * size * 0.17, baseY - size * 0.55, size * 0.09, size * 0.06, 0, 0, Math.PI * 2);
+    ctx.ellipse(ex, ey, size * 0.07, size * 0.045, s * 0.25, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = C.ink;
+    ctx.fillStyle = KRAKEN;
     ctx.beginPath();
-    ctx.arc(cx + s * size * 0.15, baseY - size * 0.55, size * 0.03, 0, Math.PI * 2);
+    ctx.ellipse(ex, ey, size * 0.014, size * 0.04, 0, 0, Math.PI * 2);
     ctx.fill();
   }
-  ctx.fillStyle = C.face;
+  ctx.strokeStyle = 'rgba(240, 248, 255, 0.6)'; // foam where it breaks the surface
+  ctx.lineWidth = Math.max(1, size * 0.02);
   ctx.beginPath();
-  const teeth = 7;
-  for (let i = 0; i <= teeth; i++) {
-    const tx = cx - size * 0.28 + (i / teeth) * size * 0.56;
-    ctx.lineTo(tx, baseY - size * (i % 2 ? 0.2 : 0.3));
-  }
-  ctx.lineTo(cx + size * 0.28, baseY - size * 0.33);
-  ctx.lineTo(cx - size * 0.28, baseY - size * 0.33);
-  ctx.fill();
+  ctx.ellipse(cx, baseY, size * 0.55, size * 0.06, 0, Math.PI, 0, true);
+  ctx.stroke();
 }
 
 // The rear-view mirror: an iron frame with brass rivets, a sunset reflection, and the monster growing as it closes in.
@@ -923,19 +977,13 @@ function placeMirror() {
   mirrorTop = (top + MIRROR_LABEL) * ratio;
 }
 
-function drawClaws(w, h, t) {
-  ctx.fillStyle = C.ink;
-  for (const side of [-1, 1]) {
-    const ox = side < 0 ? 0 : w;
-    for (let i = 0; i < 3; i++) {
-      const y0 = h * (0.55 + i * 0.12);
-      const reach = w * 0.16 * t;
-      ctx.beginPath();
-      ctx.moveTo(ox, y0 - h * 0.03);
-      ctx.quadraticCurveTo(ox - side * reach * 0.6, y0 - h * 0.08, ox - side * reach, y0);
-      ctx.quadraticCurveTo(ox - side * reach * 0.5, y0 - h * 0.01, ox, y0 + h * 0.03);
-      ctx.fill();
-    }
+// When the kraken is close, its tentacles reach in from both sides of the screen.
+function drawTentacles(w, h, t) {
+  const m = Math.min(w, h);
+  const phase = calm ? 0 : run.time * 3;
+  for (let i = 0; i < 2; i++) {
+    tentacle(0, h * (0.62 + i * 0.18), m * 0.5 * t, -0.5 + i * 0.3, -2.6, m * 0.08, phase + i);
+    tentacle(w, h * (0.62 + i * 0.18), m * 0.5 * t, Math.PI + 0.5 - i * 0.3, 2.6, m * 0.08, phase + i + 2);
   }
 }
 
@@ -1386,7 +1434,7 @@ function render(dt) {
   drawBoatLit(w, h);
   stepSmoke(dt, w, h);
   if (!run.demo) {
-    if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);
+    if (run.gap < 20) drawTentacles(w, h, 1 - run.gap / 20);
     drawMirror(w, h);
   }
   ctx.restore();
@@ -1452,7 +1500,7 @@ function hud() {
   el('hud-distance').textContent = `${Math.floor(run.z / SEG).toLocaleString()} m`;
   const mph = run.speed * MPH_PER_UNIT;
   el('hud-speed').textContent = `${Math.round(mph)} mph`;
-  el('hud-gap').textContent = `Monster ${Math.max(0, Math.round(run.gap))} m behind`;
+  el('hud-gap').textContent = `Kraken ${Math.max(0, Math.round(run.gap))} m behind`;
   const counting = run.paused === 'countdown';
   const c = counting ? String(Math.ceil(run.countdown)) : run.callout && run.callout.until > run.time ? run.callout.text : '';
   const callout = el('callout');
@@ -1482,6 +1530,7 @@ function frame(t) {
   else if (run.paused === 'countdown') tickCountdown(dt);
   if (run.over) return;
   render(run.paused === 'menu' ? 0 : dt);
+  Sound.setEngine(run.demo || run.paused ? null : run.speed / run.cfg.maxSpeed);
   if (run.demo && calm) return; // reduced motion: the menu shows one still frame
   if (!run.demo) {
     // The needle eases toward the true speed each frame instead of jumping with the 10 Hz HUD.
@@ -1513,9 +1562,9 @@ function selectedCategory() {
 }
 
 const FAULT_HOW = {
-  circuits: 'A signal circuit opens. Pick a signal box from the drawer, place it in a slot, then press Run the test cycle. Every row in the ledger must match.',
-  coding: 'A short Python snippet opens. Read it and pick what it prints from four answers. A wrong pick costs nothing but time.',
-  mixed: 'Each fault is either a signal circuit (place signal boxes, then run the test cycle) or a Python snippet (pick what it prints).',
+  circuits: 'Fit signal boxes into the circuit, then run the test cycle.',
+  coding: 'Pick what a short Python snippet prints.',
+  mixed: 'Fix a signal circuit or pick what a Python snippet prints.',
 };
 
 // The controls briefing shown before every run started from the menu.
@@ -1554,7 +1603,7 @@ function startDemo() {
   newRun('easy', 'circuits');
   run.demo = true;
   run.faultAt = Infinity;
-  run.z = 2300 * SEG;
+  run.z = 3800 * SEG; // the menu's demo opens at sunset (3800 + START_AT wraps to 2300 m into the cycle)
   run.written = Math.floor(run.z / SEG);
   fillTrack();
   run.speed = run.cfg.maxSpeed * 0.75;
@@ -1575,6 +1624,7 @@ function startRun() {
   el('paused').hidden = true;
   announce(`${run.cfg.label} run started. Steer with the arrow keys.`);
   shout('Full steam ahead!', 2);
+  Sound.fx.whistle();
   canvas.focus();
   last = performance.now();
   cancelAnimationFrame(raf);
@@ -1598,6 +1648,8 @@ function finish(cause = 'monster') {
   if (run.over) return;
   run.over = true;
   cancelAnimationFrame(raf);
+  Sound.setEngine(null);
+  Sound.fx.sink();
   const metres = Math.floor(run.z / SEG);
   const best = loadBest();
   const record = metres > (best[run.mode] || 0);
@@ -1610,7 +1662,7 @@ function finish(cause = 'monster') {
   el('score-error').textContent = '';
   el('score-name').removeAttribute('aria-invalid');
   el('score-name').value = lastName();
-  announce(cause === 'whirlpool' ? `The boat was pulled into a whirlpool after ${metres} metres.` : `The monster caught the boat after ${metres} metres.`);
+  announce(cause === 'whirlpool' ? `The boat was pulled into a whirlpool after ${metres} metres.` : `The kraken caught the boat after ${metres} metres.`);
   el('over').showModal();
   if (!form.hidden) el('score-name').focus();
 }
@@ -1626,6 +1678,7 @@ function pause(on) {
 
 function toMenu() {
   if (run) { run.over = true; cancelAnimationFrame(raf); }
+  Sound.setEngine(null);
   if (el('over').open) el('over').close();
   renderBest();
   show('menu');
@@ -1680,6 +1733,8 @@ el('score-name').addEventListener('input', () => {
   el('score-name').removeAttribute('aria-invalid');
 });
 el('go').addEventListener('click', startRun);
+el('mute').checked = Sound.muted;
+el('mute').addEventListener('change', () => Sound.setMuted(el('mute').checked));
 el('brief-back').addEventListener('click', toMenu);
 el('again').addEventListener('click', () => { el('over').close(); startRun(); });
 el('to-menu').addEventListener('click', toMenu);
