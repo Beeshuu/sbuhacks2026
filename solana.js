@@ -48,8 +48,14 @@ const Chain = (() => {
     if (!wallet) throw new Error('NO_WALLET');
     const { w, memo, board, conn } = await setup();
     const { publicKey } = await wallet.connect();
+    // The 0-lamport transfer is built by hand: SystemProgram.transfer needs Node's Buffer, which browsers lack.
+    // System program data: instruction 2 (transfer) as a little-endian u32, then the lamports (0) as a u64.
     const tx = new w.Transaction().add(
-      w.SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: board, lamports: 0 }),
+      new w.TransactionInstruction({
+        programId: w.SystemProgram.programId,
+        keys: [{ pubkey: publicKey, isSigner: true, isWritable: true }, { pubkey: board, isSigner: false, isWritable: true }],
+        data: new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+      }),
       new w.TransactionInstruction({
         programId: memo,
         keys: [{ pubkey: publicKey, isSigner: true, isWritable: false }],
