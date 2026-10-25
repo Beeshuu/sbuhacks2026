@@ -67,7 +67,7 @@ function saveBest(best) {
 }
 
 const canvas = el('view');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d'); // let: the boat is drawn to its own layer at night (drawBoatLit)
 const keys = { left: false, right: false };
 let run = null;
 let raf = 0;
@@ -509,71 +509,106 @@ function drawSkyline(w, h, hz) {
   }
 }
 
-// A whirlpool: a dark funnel in one lane with white foam spiralling round it. Its foam is drawn again
-// over the night shade, so it stays visible after dark.
-let poolMarks = []; // whirlpools drawn this frame: [x, y, scale, clipY]
-
-function drawWhirlpool(x, y, scale, clipY, foamOnly = false) {
-  const rx = scale * 0.32;
-  const ry = rx * 0.34;
+// A whirlpool: a dark funnel in one lane with three white foam arms spiralling into its core;
+// the foam keeps it readable after dark.
+function drawWhirlpool(x, y, scale, clipY) {
+  const rx = scale * 0.34;
+  const squash = 0.34; // the river is seen at a low angle, so circles on it read as flat ellipses
+  const spin = calm ? 0 : run.time * 2.4;
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, canvas.width, clipY);
   ctx.clip();
-  if (!foamOnly) {
-    const funnel = ctx.createRadialGradient(x, y, 0, x, y, rx);
-    funnel.addColorStop(0, '#05101c');
-    funnel.addColorStop(0.55, '#0f2a44');
-    funnel.addColorStop(1, css(sky.water, 0));
-    ctx.fillStyle = funnel;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(1, squash);
+  const funnel = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+  funnel.addColorStop(0, '#02070e');
+  funnel.addColorStop(0.3, '#0a1d33');
+  funnel.addColorStop(0.7, css(mixRgb(sky.water, [0, 0, 0], 0.35)));
+  funnel.addColorStop(1, css(sky.water, 0));
+  ctx.fillStyle = funnel;
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.lineCap = 'round';
+  for (let a = 0; a < 3; a++) {
     ctx.beginPath();
-    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fill();
-    poolMarks.push([x, y, scale, clipY]);
-  }
-  const spin = calm ? 0 : run.time * 2.4;
-  ctx.strokeStyle = 'rgba(240, 248, 255, 0.85)';
-  ctx.lineWidth = Math.max(1, scale * 0.012);
-  for (let i = 0; i < 4; i++) {
-    const k = 1 - i * 0.2;
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx * k, ry * k, 0, spin + i * 1.6, spin + i * 1.6 + Math.PI * 1.25);
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24; // 0 at the rim, 1 at the core
+      const r = rx * (1 - t * 0.88);
+      const th = spin + (a * Math.PI * 2) / 3 + t * Math.PI * 2.2;
+      ctx.lineTo(x + Math.cos(th) * r, y + Math.sin(th) * r * squash);
+    }
+    ctx.strokeStyle = 'rgba(240, 248, 255, 0.8)';
+    ctx.lineWidth = Math.max(1, scale * 0.016);
     ctx.stroke();
   }
+  ctx.strokeStyle = 'rgba(170, 215, 240, 0.55)';
+  ctx.lineWidth = Math.max(1, scale * 0.008);
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx * 1.05, rx * squash * 1.05, 0, 0, Math.PI * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
-// A wave: a curling crest with a white foam cap that bobs on the water.
+// A wave: a tall curling breaker, a darker swell behind it, a shadowed tube under the lip,
+// a foam crest and spray thrown up off the top.
 function drawWave(sx, y, wide) {
-  const bob = calm ? 0 : Math.sin(run.time * 4 + sx * 0.01) * wide * 0.04;
-  const top = y - wide * 0.5 + bob;
+  const bob = calm ? 0 : Math.sin(run.time * 4 + sx * 0.01) * wide * 0.05;
+  const top = y - wide * 0.66 + bob;
+  ctx.fillStyle = css(mixRgb(sky.water, [0, 0, 0], 0.25));
+  ctx.beginPath();
+  ctx.moveTo(sx - wide * 0.78, y);
+  ctx.quadraticCurveTo(sx - wide * 0.2, top + wide * 0.12, sx + wide * 0.78, y);
+  ctx.closePath();
+  ctx.fill();
   const body = ctx.createLinearGradient(0, top, 0, y);
-  body.addColorStop(0, '#5aa7d8');
+  body.addColorStop(0, '#86cbe8');
+  body.addColorStop(0.5, '#3f8fc0');
   body.addColorStop(1, css(mixRgb(sky.water, [0, 0, 0], 0.15)));
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.moveTo(sx - wide * 0.6, y);
-  ctx.quadraticCurveTo(sx - wide * 0.35, top + wide * 0.05, sx + wide * 0.05, top);
-  ctx.quadraticCurveTo(sx + wide * 0.4, top - wide * 0.02, sx + wide * 0.32, top + wide * 0.2);
-  ctx.quadraticCurveTo(sx + wide * 0.22, top + wide * 0.12, sx + wide * 0.18, top + wide * 0.26);
-  ctx.quadraticCurveTo(sx + wide * 0.45, y - wide * 0.08, sx + wide * 0.6, y);
+  ctx.moveTo(sx - wide * 0.65, y);
+  ctx.bezierCurveTo(sx - wide * 0.4, y - wide * 0.2, sx - wide * 0.2, top, sx + wide * 0.12, top);
+  ctx.bezierCurveTo(sx + wide * 0.38, top, sx + wide * 0.48, top + wide * 0.16, sx + wide * 0.38, top + wide * 0.28);
+  ctx.bezierCurveTo(sx + wide * 0.3, top + wide * 0.18, sx + wide * 0.2, top + wide * 0.2, sx + wide * 0.22, top + wide * 0.34);
+  ctx.bezierCurveTo(sx + wide * 0.3, y - wide * 0.1, sx + wide * 0.5, y - wide * 0.02, sx + wide * 0.65, y);
   ctx.closePath();
   ctx.fill();
-  // Foam along the crest and spray above it.
-  ctx.strokeStyle = '#f4fbff';
-  ctx.lineWidth = Math.max(2, wide * 0.08);
-  ctx.lineCap = 'round';
+  ctx.fillStyle = 'rgba(8, 28, 48, 0.4)';
   ctx.beginPath();
-  ctx.moveTo(sx - wide * 0.3, top + wide * 0.1);
-  ctx.quadraticCurveTo(sx + wide * 0.05, top - wide * 0.03, sx + wide * 0.32, top + wide * 0.2);
+  ctx.ellipse(sx + wide * 0.3, top + wide * 0.3, wide * 0.07, wide * 0.05, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.lineWidth = Math.max(1, wide * 0.025);
+  ctx.lineCap = 'round';
+  for (const k of [0.25, 0.5]) {
+    ctx.beginPath();
+    ctx.moveTo(sx - wide * (0.5 - k * 0.3), y - wide * (0.06 + k * 0.2));
+    ctx.quadraticCurveTo(sx - wide * 0.15, top + wide * (0.15 + k * 0.3), sx + wide * 0.05, top + wide * (0.08 + k * 0.25));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#f4fbff';
+  ctx.lineWidth = Math.max(2, wide * 0.09);
+  ctx.beginPath();
+  ctx.moveTo(sx - wide * 0.32, top + wide * 0.12);
+  ctx.bezierCurveTo(sx - wide * 0.1, top - wide * 0.03, sx + wide * 0.36, top - wide * 0.02, sx + wide * 0.38, top + wide * 0.26);
   ctx.stroke();
   ctx.fillStyle = 'rgba(244, 251, 255, 0.85)';
-  for (let i = 0; i < 5; i++) {
-    const t = calm ? 0.5 : (run.time * 1.5 + i / 5) % 1;
+  for (let i = 0; i < 7; i++) {
+    const t = calm ? 0.5 : (run.time * 1.5 + i / 7) % 1;
     ctx.beginPath();
-    ctx.arc(sx - wide * 0.2 + i * wide * 0.12, top - t * wide * 0.25, wide * 0.035 * (1 - t), 0, Math.PI * 2);
+    ctx.arc(sx - wide * 0.25 + i * wide * 0.1, top - t * wide * 0.3, wide * 0.035 * (1 - t), 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.strokeStyle = 'rgba(244, 251, 255, 0.7)';
+  ctx.lineWidth = Math.max(1, wide * 0.04);
+  ctx.beginPath();
+  ctx.moveTo(sx - wide * 0.7, y);
+  ctx.quadraticCurveTo(sx, y - wide * 0.06, sx + wide * 0.7, y);
+  ctx.stroke();
 }
 
 // A water line across an object, so floating things look half sunk.
@@ -587,6 +622,88 @@ function waterLine(sx, y, wide) {
   ctx.stroke();
 }
 
+// Rings spreading out from something sitting in the water.
+function ripples(sx, y, wide) {
+  for (let i = 0; i < 2; i++) {
+    const t = calm ? 0.4 + i * 0.3 : (run.time * 0.8 + i / 2) % 1;
+    ctx.strokeStyle = `rgba(240, 248, 255, ${(1 - t) * 0.55})`;
+    ctx.lineWidth = Math.max(1, wide * 0.025);
+    ctx.beginPath();
+    ctx.ellipse(sx, y, wide * (0.6 + t * 0.5), wide * 0.08 * (1 + t), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+// A jagged slate rock: a lit face and a shadowed face, a crack, moss on top and foam round the base.
+const ROCK = [[-0.5, 0], [-0.47, -0.4], [-0.3, -0.75], [-0.08, -0.88], [0.1, -1], [0.3, -0.76], [0.42, -0.52], [0.5, 0]];
+
+function drawRock(sx, y, wide) {
+  const tall = wide * 0.8;
+  const at = ([px, py]) => [sx + px * wide, y + py * tall];
+  const face = ctx.createLinearGradient(sx - wide / 2, 0, sx + wide / 2, 0);
+  face.addColorStop(0, '#8d877a');
+  face.addColorStop(0.55, '#5e5a52');
+  face.addColorStop(1, '#3a3732');
+  ctx.fillStyle = face;
+  ctx.beginPath();
+  for (const pt of ROCK) ctx.lineTo(...at(pt));
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#a8a092';
+  ctx.beginPath();
+  for (const pt of [[-0.3, -0.75], [-0.08, -0.88], [-0.12, -0.48], [-0.38, -0.36]]) ctx.lineTo(...at(pt));
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(...at([0.1, -0.98])); ctx.lineTo(...at([0.04, -0.6])); ctx.lineTo(...at([0.16, -0.32]));
+  ctx.stroke();
+  ctx.fillStyle = '#5d7a3a';
+  ctx.beginPath();
+  ctx.ellipse(sx - wide * 0.04, y - tall * 0.88, wide * 0.17, tall * 0.06, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  waterLine(sx, y + wide * 0.04, wide);
+  ripples(sx, y, wide);
+}
+
+// A floating crate: planks inside an iron frame with brass rivets, tipping gently on ripple rings.
+function drawCrate(sx, y, wide) {
+  const tall = wide * 0.85;
+  const tilt = calm ? 0 : Math.sin(run.time * 2 + sx * 0.03) * 0.06;
+  ripples(sx, y, wide);
+  ctx.save();
+  ctx.translate(sx, y);
+  ctx.rotate(tilt);
+  ctx.fillStyle = '#a87a3e';
+  ctx.fillRect(-wide / 2, -tall, wide, tall);
+  ctx.strokeStyle = 'rgba(60, 36, 14, 0.6)';
+  ctx.lineWidth = Math.max(1, wide * 0.02);
+  for (let k = 1; k < 4; k++) {
+    ctx.beginPath();
+    ctx.moveTo(-wide / 2, -tall * (k / 4)); ctx.lineTo(wide / 2, -tall * (k / 4));
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#3a3d42';
+  const band = wide * 0.1;
+  ctx.fillRect(-wide / 2, -tall, band, tall);
+  ctx.fillRect(wide / 2 - band, -tall, band, tall);
+  ctx.fillRect(-wide / 2, -tall, wide, band);
+  ctx.fillRect(-wide / 2, -tall * 0.55, wide, band);
+  ctx.fillStyle = BRASS_LIGHT;
+  for (const bx of [-wide / 2 + band / 2, wide / 2 - band / 2]) {
+    for (const by of [-tall + band / 2, -tall * 0.55 + band / 2]) {
+      ctx.beginPath();
+      ctx.arc(bx, by, Math.max(1, wide * 0.022), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = Math.max(1, wide * 0.04);
+  ctx.strokeRect(-wide / 2, -tall, wide, tall);
+  ctx.restore();
+  waterLine(sx, y + wide * 0.02, wide);
+}
+
 function drawObstacle(ob, p, clipY) {
   const wide = p.w * 0.48;
   const sx = p.x + ob.x * p.w;
@@ -596,33 +713,9 @@ function drawObstacle(ob, p, clipY) {
   ctx.clip();
   ctx.lineWidth = Math.max(1, wide * 0.04);
   ctx.strokeStyle = C.ink;
-  if (ob.kind === 'wave') {
-    drawWave(sx, p.y, wide);
-  } else if (ob.kind === 'rock') {
-    const tall = wide * 0.7;
-    ctx.fillStyle = '#6f6656';
-    ctx.beginPath();
-    ctx.ellipse(sx, p.y - tall / 2, wide / 2, tall / 2, 0, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#958b78';
-    ctx.beginPath();
-    ctx.ellipse(sx - wide * 0.14, p.y - tall * 0.66, wide * 0.16, tall * 0.12, -0.4, 0, Math.PI * 2);
-    ctx.fill();
-    waterLine(sx, p.y + wide * 0.04, wide); // water and foam round the base
-  } else {
-    // A floating crate bobs, with its lower part under the water.
-    const bob = calm ? 0 : Math.sin(run.time * 3 + sx * 0.02) * wide * 0.04;
-    const tall = wide * 0.85;
-    const y = p.y + bob;
-    ctx.fillStyle = '#b08a4a';
-    ctx.fillRect(sx - wide / 2, y - tall, wide, tall);
-    ctx.strokeRect(sx - wide / 2, y - tall, wide, tall);
-    ctx.beginPath();
-    ctx.moveTo(sx - wide / 2, y - tall); ctx.lineTo(sx + wide / 2, y);
-    ctx.moveTo(sx + wide / 2, y - tall); ctx.lineTo(sx - wide / 2, y);
-    ctx.stroke();
-    waterLine(sx, p.y + wide * 0.02, wide);
-  }
+  if (ob.kind === 'wave') drawWave(sx, p.y, wide);
+  else if (ob.kind === 'rock') drawRock(sx, p.y, wide);
+  else drawCrate(sx, p.y + (calm ? 0 : Math.sin(run.time * 3 + sx * 0.02) * wide * 0.04), wide);
   ctx.restore();
 }
 
@@ -707,13 +800,15 @@ function drawTrack(w, h) {
       }
     }
     maxY = p2.y;
+    if (n === 30) run.beamTarget = { x: p1.x + (run.x + run.lean * 0.5) * p1.w, y: p1.y, half: p1.w * 0.55 };
     if (seg.obstacles.length || seg.scenery.length || abs % 25 === 0) shown.push({ seg, abs, p1, clip });
   }
   for (let i = shown.length - 1; i >= 0; i--) {
     const { seg, abs, p1, clip } = shown[i];
     if (abs % 25 === 0) for (const side of [-1.35, 1.35]) drawPole(p1.x + side * p1.w, p1.y, p1.w, clip);
     for (const item of seg.scenery) drawTree(item, p1, clip);
-    for (const ob of seg.obstacles) if (ob.kind === 'whirlpool' && ob.mid) drawWhirlpool(p1.x + ob.x * p1.w, p1.y, p1.w, clip);
+    // A whirlpool spreads in front of its middle segment too; the river is flat, so it needs no clip.
+    for (const ob of seg.obstacles) if (ob.kind === 'whirlpool' && ob.mid) drawWhirlpool(p1.x + ob.x * p1.w, p1.y, p1.w, h);
     for (const ob of seg.obstacles) if (!ob.hit && ob.kind !== 'whirlpool') drawObstacle(ob, p1, clip);
   }
 }
@@ -849,42 +944,55 @@ function roundRect(x, y, w, h, r) {
   ctx.roundRect(x, y, w, h, r);
 }
 
-function drawGear(x, y, r, teeth) {
-  ctx.fillStyle = '#c9a04a';
-  ctx.beginPath();
-  for (let i = 0; i < teeth * 2; i++) {
-    const a = (i / (teeth * 2)) * Math.PI * 2 + run.z * 0.0004; // the cogs turn as the boat moves
-    const rr = i % 2 ? r * 0.78 : r;
-    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#5a3d14';
-  ctx.beginPath();
-  ctx.arc(x, y, r * 0.3, 0, Math.PI * 2);
-  ctx.fill();
-}
-
 // Where the steamboat sits on screen: its waterline at the boat's own distance ahead.
 function boatFrame(w, h) {
   const sc = DEPTH / AHEAD;
   const roadHalf = sc * ROAD * w / 2;
-  const u = (roadHalf * 0.23) / 100; // drawing unit: the hull is about 100u wide, paddle boxes add 40u
+  const u = (roadHalf * 0.23) / 100; // drawing unit: the deck is about 100u wide, paddle boxes add 40u
   return { cx: w / 2, by: horizonOf(w, h) + sc * CAM_H * h / 2 - u * 6, u };
 }
 
-const STACKS = [-18, 18]; // smokestack x positions, in boat units
+const STACKS = [-17, 17]; // smokestack x positions, in boat units
+const lean = () => run.lean * 0.035; // run.lean eases toward the steering (see render)
+let boatPose = null; // where the boat was drawn this frame, so its lights can follow it
+const BRASS = '#c9a04a';
+const BRASS_LIGHT = '#e8c878';
 
-// The player's steampunk paddle steamer, seen from just behind and above. The steel hull runs to the
-// bottom of the screen; red paddle wheels turn in brass housings; two tall stacks puff smoke.
-// It rolls gently on the water and leans into steering.
+function glassWindow(x, y, w, h, u, arch = true) {
+  const glow = ctx.createRadialGradient(x + w / 2, y + h / 2, u, x + w / 2, y + h / 2, Math.max(w, h));
+  glow.addColorStop(0, '#ffe8b0');
+  glow.addColorStop(1, '#d58a2a');
+  ctx.fillStyle = glow;
+  roundRect(x, y, w, h, arch ? [w / 2, w / 2, 1.5 * u, 1.5 * u] : 1.5 * u);
+  ctx.fill();
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 1.6 * u;
+  ctx.stroke();
+}
+
+function rivets(x1, x2, y, u, step = 8) {
+  ctx.fillStyle = BRASS_LIGHT;
+  for (let x = x1; x <= x2; x += step) {
+    ctx.beginPath();
+    ctx.arc(x * u, y * u, 1 * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// The player's riverboat, seen from just behind and above: a planked deck running to the bottom of the
+// screen inside steel gunwales, sunburst paddle boxes, a two-tier cabin with arched windows and
+// portholes, a domed pilot house, two ornate stacks, deck lanterns and a pennant that waves.
+// It rolls on the water and leans into steering. Light positions are recorded for the night glow.
 function drawBoat(w, h) {
   const { cx, by, u } = boatFrame(w, h);
   const pct = run.speed / run.cfg.maxSpeed;
   const low = h - by + 40 * u;
   const roll = calm ? 0 : Math.sin(run.time * 1.6) * 0.012;
   const bob = calm ? 0 : Math.sin(run.time * 2.3) * u * 1.2;
-  const spin = run.z * 0.0025; // paddle wheels turn with distance travelled
+  const spin = run.z * 0.0025;
+  const angle = lean() + roll;
+  boatPose = { cx, y: by + bob, angle, u, lights: [] };
+  const light = (x, y, r) => boatPose.lights.push([x, y, r]);
 
   // Wake: foam spreading from the hull toward the viewer, drawn on the water before the boat.
   ctx.save();
@@ -892,10 +1000,10 @@ function drawBoat(w, h) {
   ctx.fillStyle = `rgba(240, 248, 255, ${0.18 + pct * 0.15})`;
   for (const side of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(side * 48 * u, -4 * u);
-    ctx.lineTo(side * 60 * u, -4 * u);
+    ctx.moveTo(side * 50 * u, -4 * u);
+    ctx.lineTo(side * 62 * u, -4 * u);
     ctx.lineTo(side * 130 * u, low);
-    ctx.lineTo(side * 75 * u, low);
+    ctx.lineTo(side * 76 * u, low);
     ctx.closePath();
     ctx.fill();
   }
@@ -903,185 +1011,330 @@ function drawBoat(w, h) {
 
   ctx.save();
   ctx.translate(cx, by + bob);
-  ctx.rotate((keys.right - keys.left) * 0.035 + roll);
+  ctx.rotate(angle);
 
-  // Smokestacks behind the cabin, black with brass bands and flared crowns.
+  // Pennant on a staff at the stern, rippling in the wind.
+  ctx.strokeStyle = '#2c3035';
+  ctx.lineWidth = 1.6 * u;
+  ctx.beginPath();
+  ctx.moveTo(-40 * u, -26 * u); ctx.lineTo(-40 * u, -78 * u);
+  ctx.stroke();
+  const wave = calm ? 0 : run.time * 6;
+  ctx.fillStyle = '#a3361f';
+  ctx.beginPath();
+  ctx.moveTo(-40 * u, -78 * u);
+  for (let i = 0; i <= 6; i++) ctx.lineTo((-40 - i * 3.2) * u, (-77 + Math.sin(wave + i) * 1.6 + i * 0.6) * u);
+  for (let i = 6; i >= 0; i--) ctx.lineTo((-40 - i * 3.2) * u, (-69 + Math.sin(wave + i) * 1.6 - i * 0.6) * u);
+  ctx.closePath();
+  ctx.fill();
+
+  // Ornate stacks with feathered brass crowns.
   for (const sx of STACKS) {
-    ctx.fillStyle = '#1c1c1f';
-    ctx.beginPath();
-    ctx.moveTo((sx - 5) * u, -86 * u); ctx.lineTo((sx - 5) * u, -140 * u); ctx.lineTo((sx - 9) * u, -152 * u);
-    ctx.lineTo((sx + 9) * u, -152 * u); ctx.lineTo((sx + 5) * u, -140 * u); ctx.lineTo((sx + 5) * u, -86 * u);
+    const body = ctx.createLinearGradient((sx - 6) * u, 0, (sx + 6) * u, 0);
+    body.addColorStop(0, '#111114');
+    body.addColorStop(0.5, '#3a3a40');
+    body.addColorStop(1, '#111114');
+    ctx.fillStyle = body;
+    ctx.fillRect((sx - 5) * u, -150 * u, 10 * u, 64 * u);
+    ctx.fillStyle = BRASS;
+    ctx.fillRect((sx - 6) * u, -126 * u, 12 * u, 3 * u);
+    ctx.fillRect((sx - 6) * u, -112 * u, 12 * u, 2 * u);
+    ctx.beginPath(); // crown: a ring of brass points
+    ctx.moveTo((sx - 9) * u, -150 * u);
+    for (let i = 0; i <= 6; i++) ctx.lineTo((sx - 9 + i * 3) * u, (i % 2 ? -158 : -152) * u);
+    ctx.lineTo((sx + 9) * u, -148 * u);
+    ctx.lineTo((sx - 9) * u, -148 * u);
+    ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = '#c9a04a';
-    ctx.fillRect((sx - 6) * u, -128 * u, 12 * u, 3 * u);
-    ctx.fillRect((sx - 9.5) * u, -154 * u, 19 * u, 3 * u);
   }
 
-  // Paddle boxes: brass-rimmed half housings with the red wheel's spokes turning inside.
+  // Paddle boxes: brass-rimmed half discs with a sunburst of slats and the wheel turning beneath.
   for (const side of [-1, 1]) {
-    const px = side * 54 * u;
-    const py = -8 * u;
-    const r = 20 * u;
-    ctx.fillStyle = '#7a2418';
+    const px = side * 56 * u;
+    const py = -6 * u;
+    const r = 21 * u;
+    ctx.fillStyle = '#6a1f15';
     ctx.beginPath();
     ctx.arc(px, py, r, Math.PI, 0);
     ctx.closePath();
     ctx.fill();
     ctx.save();
     ctx.clip();
-    ctx.strokeStyle = '#d9a45a';
-    ctx.lineWidth = 1.6 * u;
+    for (let k = 0; k < 9; k++) {
+      const a = Math.PI + (k / 8) * Math.PI;
+      ctx.fillStyle = k % 2 ? '#8f2c1d' : '#6a1f15';
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.arc(px, py, r, a, a + Math.PI / 8);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(232, 200, 120, 0.55)';
+    ctx.lineWidth = 1.2 * u;
     for (let k = 0; k < 8; k++) {
       const a = (k / 8) * Math.PI * 2 + side * spin;
       ctx.beginPath();
-      ctx.moveTo(px, py);
+      ctx.moveTo(px + Math.cos(a) * r * 0.55, py + Math.sin(a) * r * 0.55);
       ctx.lineTo(px + Math.cos(a) * r, py + Math.sin(a) * r);
       ctx.stroke();
     }
     ctx.restore();
-    ctx.strokeStyle = '#c9a04a';
-    ctx.lineWidth = 2.4 * u;
+    ctx.strokeStyle = BRASS;
+    ctx.lineWidth = 2.6 * u;
     ctx.beginPath();
     ctx.arc(px, py, r, Math.PI, 0);
     ctx.stroke();
-    // Splash where the paddles meet the water.
+    ctx.fillStyle = BRASS;
+    ctx.beginPath();
+    ctx.arc(px, py, 4 * u, Math.PI, 0);
+    ctx.fill();
     ctx.fillStyle = 'rgba(240, 248, 255, 0.8)';
-    for (let k = 0; k < 4; k++) {
-      const t = calm ? 0.5 : (run.time * 2 + k / 4) % 1;
+    for (let k = 0; k < 5; k++) {
+      const t = calm ? 0.5 : (run.time * 2 + k / 5) % 1;
       ctx.beginPath();
-      ctx.arc(px + (k - 1.5) * 9 * u, py + 6 * u - t * 8 * u, (3 - t * 2) * u, 0, Math.PI * 2);
+      ctx.arc(px + (k - 2) * 8 * u, py + 6 * u - t * 9 * u, (3 - t * 2) * u, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // Hull: gunmetal grey, widening slightly toward the viewer, past the bottom of the screen.
-  const steel = ctx.createLinearGradient(-50 * u, 0, 50 * u, 0);
-  steel.addColorStop(0, '#3e4349');
-  steel.addColorStop(0.5, '#858c94');
-  steel.addColorStop(1, '#3e4349');
-  ctx.fillStyle = steel;
+  // Deck: steel gunwales either side of wooden planks, widening toward the viewer.
+  const half = (y) => 48 + (6 * (y + 24)) / (low / u + 24);
+  ctx.fillStyle = '#4a4f55';
   ctx.beginPath();
-  ctx.moveTo(-46 * u, -22 * u); ctx.lineTo(46 * u, -22 * u);
-  ctx.lineTo(52 * u, low); ctx.lineTo(-52 * u, low);
+  ctx.moveTo(-48 * u, -24 * u); ctx.lineTo(48 * u, -24 * u);
+  ctx.lineTo(54 * u, low); ctx.lineTo(-54 * u, low);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#c9a04a';
-  ctx.lineWidth = 2.2 * u;
-  ctx.stroke();
-  // Brass bands with rivets down the hull.
-  for (let y = -22; y * u < low; y += 40) {
-    const half = 46 + (6 * (y + 22)) / (low / u + 22);
-    ctx.strokeStyle = '#c9a04a';
-    ctx.lineWidth = 2 * u;
+  const deck = ctx.createLinearGradient(-40 * u, 0, 40 * u, 0);
+  deck.addColorStop(0, '#6e5236');
+  deck.addColorStop(0.5, '#9a7650');
+  deck.addColorStop(1, '#6e5236');
+  ctx.fillStyle = deck;
+  ctx.beginPath();
+  ctx.moveTo(-41 * u, -24 * u); ctx.lineTo(41 * u, -24 * u);
+  ctx.lineTo(46 * u, low); ctx.lineTo(-46 * u, low);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(40, 26, 14, 0.45)';
+  ctx.lineWidth = 0.9 * u;
+  for (let x = -36; x <= 36; x += 6) {
     ctx.beginPath();
-    ctx.moveTo(-half * u, y * u); ctx.lineTo(half * u, y * u);
+    ctx.moveTo(x * u, -24 * u); ctx.lineTo(x * 1.12 * u, low);
     ctx.stroke();
-    ctx.fillStyle = '#e8c878';
-    for (let x = -half + 4; x <= half - 4; x += 8) {
-      ctx.beginPath();
-      ctx.arc(x * u, y * u, 1.1 * u, 0, Math.PI * 2);
-      ctx.fill();
-    }
   }
-  // Foam along both sides of the hull where it cuts the water.
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 2.2 * u;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(side * 48 * u, -24 * u); ctx.lineTo(side * 54 * u, low);
+    ctx.moveTo(side * 41 * u, -24 * u); ctx.lineTo(side * 46 * u, low);
+    ctx.stroke();
+  }
+  for (let y = 10; y * u < low; y += 34) {
+    rivets(-half(y) + 2, -half(y) + 6, y, u, 4);
+    rivets(half(y) - 6, half(y) - 2, y, u, 4);
+  }
+  // Foam where the hull cuts the water.
   ctx.strokeStyle = 'rgba(240, 248, 255, 0.85)';
   ctx.lineWidth = 2.5 * u;
   for (const side of [-1, 1]) {
     ctx.beginPath();
-    for (let y = -6; y * u < low; y += 6) {
-      const half = 46 + (6 * (y + 22)) / (low / u + 22) + 2;
+    for (let y = -4; y * u < low; y += 6) {
       const wobble = calm ? 0 : Math.sin(run.time * 8 + y * 0.5) * 1.2;
-      ctx.lineTo(side * (half + wobble) * u, y * u);
+      ctx.lineTo(side * (half(y) + 2 + wobble) * u, y * u);
     }
     ctx.stroke();
   }
-  // Cog, gauge and a copper pipe on the stern deck; the gauge reads the boat's speed.
-  drawGear(-28 * u, 4 * u, 8 * u, 7);
+  // Deck fittings: a brass capstan, a speed gauge, and two lanterns on posts.
+  ctx.fillStyle = BRASS;
+  ctx.beginPath();
+  ctx.ellipse(-20 * u, 12 * u, 7 * u, 4 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#8a6420';
+  ctx.fillRect(-23 * u, 2 * u, 6 * u, 10 * u);
+  ctx.fillStyle = BRASS_LIGHT;
+  ctx.beginPath();
+  ctx.ellipse(-20 * u, 2 * u, 4 * u, 2 * u, 0, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = '#f8f2e4';
-  ctx.strokeStyle = '#c9a04a';
+  ctx.strokeStyle = BRASS;
   ctx.lineWidth = 2 * u;
   ctx.beginPath();
-  ctx.arc(28 * u, 4 * u, 8 * u, 0, Math.PI * 2);
+  ctx.arc(20 * u, 8 * u, 7 * u, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.strokeStyle = '#a3361f';
-  ctx.lineWidth = 1.5 * u;
-  ctx.beginPath();
-  ctx.moveTo(28 * u, 4 * u);
-  const needle = -Math.PI * 0.85 + pct * Math.PI * 0.7;
-  ctx.lineTo(28 * u + Math.cos(needle) * 6 * u, 4 * u + Math.sin(needle) * 6 * u);
-  ctx.stroke();
-  ctx.strokeStyle = '#b8642f';
-  ctx.lineWidth = 3.5 * u;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-36 * u, -18 * u); ctx.lineTo(-38 * u, low);
-  ctx.stroke();
-
-  // Cabin with three lit windows.
-  const cabin = ctx.createLinearGradient(-38 * u, 0, 38 * u, 0);
-  cabin.addColorStop(0, '#4a4f55');
-  cabin.addColorStop(0.5, '#8e959c');
-  cabin.addColorStop(1, '#4a4f55');
-  ctx.fillStyle = cabin;
-  roundRect(-38 * u, -84 * u, 76 * u, 62 * u, 3 * u);
-  ctx.fill();
-  ctx.strokeStyle = '#c9a04a';
-  ctx.lineWidth = 2 * u;
-  ctx.stroke();
-  for (const wx of [-27, -7, 13]) {
-    const glow = ctx.createRadialGradient((wx + 7) * u, -60 * u, u, (wx + 7) * u, -60 * u, 14 * u);
-    glow.addColorStop(0, '#ffe4a3');
-    glow.addColorStop(1, '#d9902f');
-    ctx.fillStyle = glow;
-    roundRect(wx * u, -72 * u, 14 * u, 22 * u, [7 * u, 7 * u, 1.5 * u, 1.5 * u]);
-    ctx.fill();
-    ctx.strokeStyle = '#c9a04a';
-    ctx.lineWidth = 1.8 * u;
-    ctx.stroke();
-  }
-  ctx.strokeStyle = '#c9a04a';
-  ctx.lineWidth = 2 * u;
-  ctx.beginPath();
-  ctx.moveTo(-38 * u, -40 * u); ctx.lineTo(38 * u, -40 * u);
-  ctx.stroke();
-  ctx.fillStyle = '#e8c878';
-  for (let x = -34; x <= 34; x += 8) {
-    ctx.beginPath();
-    ctx.arc(x * u, -40 * u, 1.1 * u, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Roof deck with a brass railing, the pilot house, and lamps on the corners.
-  ctx.fillStyle = '#2c3035';
-  ctx.fillRect(-44 * u, -92 * u, 88 * u, 8 * u);
-  ctx.strokeStyle = '#c9a04a';
   ctx.lineWidth = 1.4 * u;
-  ctx.strokeRect(-44 * u, -92 * u, 88 * u, 8 * u);
   ctx.beginPath();
-  ctx.moveTo(-42 * u, -101 * u); ctx.lineTo(42 * u, -101 * u);
-  for (let x = -42; x <= 42; x += 10.5) { ctx.moveTo(x * u, -92 * u); ctx.lineTo(x * u, -101 * u); }
+  ctx.moveTo(20 * u, 8 * u);
+  const needle = -Math.PI * 0.85 + pct * Math.PI * 0.7;
+  ctx.lineTo(20 * u + Math.cos(needle) * 5.5 * u, 8 * u + Math.sin(needle) * 5.5 * u);
   ctx.stroke();
-  ctx.fillStyle = cabin;
-  roundRect(-13 * u, -120 * u, 26 * u, 28 * u, 2 * u);
-  ctx.fill();
-  ctx.strokeStyle = '#c9a04a';
-  ctx.lineWidth = 1.6 * u;
-  ctx.stroke();
-  const pilot = ctx.createRadialGradient(0, -110 * u, u, 0, -110 * u, 12 * u);
-  pilot.addColorStop(0, '#ffe4a3');
-  pilot.addColorStop(1, '#d9902f');
-  ctx.fillStyle = pilot;
-  ctx.fillRect(-9 * u, -115 * u, 18 * u, 10 * u);
-  ctx.fillStyle = '#2c3035';
-  ctx.fillRect(-16 * u, -125 * u, 32 * u, 5 * u);
   for (const side of [-1, 1]) {
-    ctx.fillStyle = '#c9a04a';
-    ctx.fillRect(side * 40 * u - 4 * u, -101 * u, 8 * u, 9 * u);
-    ctx.fillStyle = '#ffd27a';
+    const lx = side * 36 * u;
+    ctx.fillStyle = '#2c3035';
+    ctx.fillRect(lx - 1 * u, 10 * u, 2 * u, 22 * u);
+    ctx.fillStyle = BRASS;
+    ctx.fillRect(lx - 4 * u, 2 * u, 8 * u, 10 * u);
+    ctx.fillStyle = '#ffd98a';
+    ctx.fillRect(lx - 2.5 * u, 4 * u, 5 * u, 6 * u);
+    light(side * 36, 7, 16);
+  }
+
+  // Lower deckhouse: teak panels, brass trim, four arched lit windows.
+  const teak = ctx.createLinearGradient(-38 * u, 0, 38 * u, 0);
+  teak.addColorStop(0, '#4a3220');
+  teak.addColorStop(0.5, '#7a5634');
+  teak.addColorStop(1, '#4a3220');
+  ctx.fillStyle = teak;
+  roundRect(-38 * u, -74 * u, 76 * u, 52 * u, 3 * u);
+  ctx.fill();
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 2 * u;
+  ctx.stroke();
+  for (const wx of [-33, -16, 2, 19]) {
+    glassWindow(wx * u, -66 * u, 12 * u, 22 * u, u);
+    light(wx + 6, -55, 14);
+  }
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 2 * u;
+  ctx.beginPath();
+  ctx.moveTo(-38 * u, -36 * u); ctx.lineTo(38 * u, -36 * u);
+  ctx.stroke();
+  rivets(-34, 34, -36, u);
+
+  // Promenade deck with a brass railing, then the upper cabin with round portholes.
+  ctx.fillStyle = '#2c3035';
+  ctx.fillRect(-44 * u, -80 * u, 88 * u, 6 * u);
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 1.3 * u;
+  ctx.beginPath();
+  ctx.moveTo(-42 * u, -88 * u); ctx.lineTo(42 * u, -88 * u);
+  for (let x = -42; x <= 42; x += 7) { ctx.moveTo(x * u, -80 * u); ctx.lineTo(x * u, -88 * u); }
+  ctx.stroke();
+  const upper = ctx.createLinearGradient(-26 * u, 0, 26 * u, 0);
+  upper.addColorStop(0, '#4a4f55');
+  upper.addColorStop(0.5, '#8e959c');
+  upper.addColorStop(1, '#4a4f55');
+  ctx.fillStyle = upper;
+  roundRect(-26 * u, -104 * u, 52 * u, 24 * u, 3 * u);
+  ctx.fill();
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 1.8 * u;
+  ctx.stroke();
+  for (const px of [-15, 0, 15]) {
+    const g = ctx.createRadialGradient(px * u, -92 * u, u, px * u, -92 * u, 6 * u);
+    g.addColorStop(0, '#ffe8b0');
+    g.addColorStop(1, '#d58a2a');
+    ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(side * 40 * u, -96.5 * u, 2.6 * u, 0, Math.PI * 2);
+    ctx.arc(px * u, -92 * u, 4.5 * u, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = BRASS;
+    ctx.lineWidth = 1.6 * u;
+    ctx.stroke();
+    light(px, -92, 10);
+  }
+
+  // Domed pilot house on top, with roof lanterns at the corners of the cabin roof.
+  ctx.fillStyle = '#2c3035';
+  ctx.fillRect(-30 * u, -108 * u, 60 * u, 4 * u);
+  ctx.fillStyle = upper;
+  roundRect(-11 * u, -124 * u, 22 * u, 16 * u, 2 * u);
+  ctx.fill();
+  ctx.strokeStyle = BRASS;
+  ctx.lineWidth = 1.5 * u;
+  ctx.stroke();
+  glassWindow(-8 * u, -121 * u, 16 * u, 8 * u, u, false);
+  light(0, -117, 12);
+  ctx.fillStyle = BRASS;
+  ctx.beginPath();
+  ctx.arc(0, -124 * u, 12 * u, Math.PI, 0);
+  ctx.fill();
+  ctx.fillStyle = BRASS_LIGHT;
+  ctx.beginPath();
+  ctx.arc(-3 * u, -130 * u, 3 * u, 0, Math.PI * 2);
+  ctx.fill();
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = BRASS;
+    ctx.fillRect(side * 27 * u - 3 * u, -115 * u, 6 * u, 7 * u);
+    ctx.fillStyle = '#ffd98a';
+    ctx.beginPath();
+    ctx.arc(side * 27 * u, -111.5 * u, 2 * u, 0, Math.PI * 2);
+    ctx.fill();
+    light(side * 27, -111, 10);
+  }
+  ctx.restore();
+}
+
+// At night the boat takes the same shade as the scene, then its windows and lanterns glow on top.
+const boatLayer = document.createElement('canvas');
+const boatCtx = boatLayer.getContext('2d');
+
+function drawBoatLit(w, h) {
+  if (sky.dark < 0.02 || !w || !h) return drawBoat(w, h); // a zero-size canvas can't be drawn as an image
+  if (boatLayer.width !== w || boatLayer.height !== h) { boatLayer.width = w; boatLayer.height = h; }
+  const main = ctx;
+  ctx = boatCtx;
+  ctx.clearRect(0, 0, w, h);
+  drawBoat(w, h);
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = `rgba(10, 14, 40, ${sky.dark * 0.5})`;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx = main;
+  ctx.drawImage(boatLayer, 0, 0);
+  const { cx, y, angle, u, lights } = boatPose;
+  ctx.save();
+  ctx.translate(cx, y);
+  ctx.rotate(angle);
+  ctx.globalCompositeOperation = 'lighter';
+  for (const [lx, ly, r] of lights) {
+    const glow = ctx.createRadialGradient(lx * u, ly * u, 0, lx * u, ly * u, r * u);
+    glow.addColorStop(0, `rgba(255, 200, 110, ${0.55 * sky.dark})`);
+    glow.addColorStop(1, 'rgba(255, 200, 110, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect((lx - r) * u, (ly - r) * u, r * 2 * u, r * 2 * u);
+  }
+  ctx.restore();
+}
+
+// The bow lamp's beam at night: it starts at the bow (hidden behind the cabin), points where the boat
+// is heading on the river ahead, swings as you steer, and lights a shimmering pool on the water.
+function drawBeam(w, h) {
+  if (sky.dark < 0.05 || !run.beamTarget) return;
+  const { cx, by, u } = boatFrame(w, h);
+  const t = run.beamTarget;
+  const sx = cx + Math.sin(lean()) * 40 * u;
+  const sy = by - 40 * u;
+  const half = t.half;
+  const a = sky.dark;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const cone = ctx.createLinearGradient(sx, sy, t.x, t.y);
+  cone.addColorStop(0, `rgba(255, 232, 180, ${0.4 * a})`);
+  cone.addColorStop(1, `rgba(255, 232, 180, ${0.04 * a})`);
+  ctx.fillStyle = cone;
+  ctx.beginPath();
+  ctx.moveTo(sx - 6 * u, sy);
+  ctx.lineTo(t.x - half, t.y);
+  ctx.lineTo(t.x + half, t.y);
+  ctx.lineTo(sx + 6 * u, sy);
+  ctx.closePath();
+  ctx.fill();
+  const pool = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, half * 1.3);
+  pool.addColorStop(0, `rgba(255, 236, 190, ${0.25 * a})`);
+  pool.addColorStop(1, 'rgba(255, 236, 190, 0)');
+  ctx.fillStyle = pool;
+  ctx.beginPath();
+  ctx.ellipse(t.x, t.y, half * 1.3, half * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Glints on the water inside the beam.
+  ctx.fillStyle = `rgba(255, 245, 220, ${0.5 * a})`;
+  for (let i = 0; i < 12; i++) {
+    const s = 0.3 + (((i * 0.618) + (calm ? 0 : run.time * 0.25)) % 1) * 0.7; // how far along the beam
+    const spread = 6 * u + (half - 6 * u) * s;
+    const gx = sx + (t.x - sx) * s + Math.sin(i * 12.9) * spread * 0.7;
+    ctx.fillRect(gx - spread * 0.08, sy + (t.y - sy) * s, spread * 0.16, Math.max(1, u * 0.6));
   }
   ctx.restore();
 }
@@ -1101,27 +1354,20 @@ function stepSmoke(dt, w, h) {
     p.a -= dt * 1.6;
   }
   run.smoke = run.smoke.filter((p) => p.a > 0);
+  const tint = sky.dark > 0.3 ? '150, 150, 165' : '236, 236, 232'; // smoke greys out after dark
   for (const p of run.smoke) {
-    ctx.fillStyle = `rgba(236, 236, 232, ${p.a})`;
+    ctx.fillStyle = `rgba(${tint}, ${p.a})`;
     ctx.beginPath();
-    ctx.arc(cx + p.x * u, by - 153 * u - p.y * u, p.r * u, 0, Math.PI * 2);
+    ctx.arc(cx + p.x * u, by - 158 * u - p.y * u, p.r * u, 0, Math.PI * 2);
     ctx.fill();
   }
 }
 
-// Darkens the land and water at night, then lays a warm bow-lamp glow up the river so obstacles stay visible.
+// Darkens the land and water at night; the bow lamp (drawBeam) then lights the river ahead.
 function drawNight(w, h) {
   const hz = horizonOf(w, h);
   ctx.fillStyle = `rgba(10, 14, 40, ${sky.dark * 0.45})`;
   ctx.fillRect(0, hz, w, h - hz);
-  const lamp = ctx.createLinearGradient(0, h, 0, hz);
-  lamp.addColorStop(0, `rgba(190, 215, 255, ${sky.dark * 0.22})`); // a cool beam: warm light turns the blue water grey
-  lamp.addColorStop(1, 'rgba(190, 215, 255, 0)');
-  ctx.fillStyle = lamp;
-  ctx.beginPath();
-  ctx.moveTo(w * 0.32, h); ctx.lineTo(w * 0.47, hz); ctx.lineTo(w * 0.53, hz); ctx.lineTo(w * 0.68, h);
-  ctx.closePath();
-  ctx.fill();
 }
 
 function render(dt) {
@@ -1130,14 +1376,14 @@ function render(dt) {
   ctx.save();
   if (run.shake > 0 && !calm) ctx.translate((Math.random() - 0.5) * run.shake * w * 0.015, (Math.random() - 0.5) * run.shake * h * 0.015);
   sky = skyAt(run.z / SEG);
-  poolMarks = [];
+  run.lean = (run.lean || 0) + ((keys.right - keys.left) - (run.lean || 0)) * Math.min(1, dt * 8); // eases the boat's tilt and lamp
   drawSky(w, h);
   drawTrack(w, h);
   if (sky.dark > 0.02) {
     drawNight(w, h);
-    for (const [x, y, scale, clip] of poolMarks) drawWhirlpool(x, y, scale, clip, true); // foam stays bright at night
+    drawBeam(w, h);
   }
-  drawBoat(w, h);
+  drawBoatLit(w, h);
   stepSmoke(dt, w, h);
   if (!run.demo) {
     if (run.gap < 20) drawClaws(w, h, 1 - run.gap / 20);

@@ -9,6 +9,16 @@
   --signal: #a3361f; /* the one accent: the main action button */
   --rule: #cdb98d;
   --display: 'IM Fell English', Georgia, serif;
+  /* In-game glass: one smoked tint, one brass hairline (it ties every panel to the brass speedometer),
+     two corner sizes and two curves, so every HUD piece, pop-up and button over the scene matches. */
+  --glass: rgba(28, 22, 36, 0.62);
+  --glass-strong: rgba(28, 22, 36, 0.8);
+  --glass-edge: rgba(232, 200, 120, 0.5);
+  --glass-blur: blur(8px);
+  --r-panel: 14px;
+  --r-control: 10px;
+  --spring: cubic-bezier(0.3, 1.4, 0.5, 1); /* a small overshoot, like an iOS spring */
+  --settle: cubic-bezier(0.2, 0.8, 0.2, 1);
   color-scheme: light;
 }
 
@@ -256,17 +266,8 @@ a { color: var(--ink); text-underline-offset: 3px; }
   pointer-events: none;
 }
 .hud-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
-.gauge {
-  margin: 0;
-  padding: 4px 10px;
-  background: var(--face);
-  border: 1px solid var(--brass);
-  border-radius: 3px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.35;
-}
 .gauge-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--ink-2); }
-.hud-button { pointer-events: auto; background: var(--face); }
+.hud-button { pointer-events: auto; }
 .callout {
   position: absolute;
   top: 40%;
@@ -278,9 +279,6 @@ a { color: var(--ink); text-underline-offset: 3px; }
   text-align: center;
   font-family: var(--display);
   font-size: clamp(1.4rem, 4vw, 2.3rem);
-  background: var(--face);
-  border: 1px solid var(--brass);
-  border-radius: 3px;
   pointer-events: none;
 }
 .callout:empty { display: none; }
@@ -300,14 +298,10 @@ a { color: var(--ink); text-underline-offset: 3px; }
   touch-action: none;
   user-select: none;
   font-size: 1.8rem;
-  background: var(--face);
-  border: 2px solid var(--brass);
-  border-radius: 4px;
   cursor: pointer;
 }
-.steer button:active { background: var(--plate); }
-.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(43, 33, 24, 0.55); }
-.panel { max-width: 420px; padding: 24px; background: var(--paper); border: 1px solid var(--brass); border-radius: 4px; }
+.overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.panel { max-width: 420px; padding: 24px; }
 .panel h2 { margin: 0; font-size: 2rem; }
 
 /* ---- Dialogs ------------------------------------------------------------- */
@@ -325,8 +319,8 @@ dialog::backdrop { background: rgba(43, 33, 24, 0.6); }
 .repair-head h2 { margin: 0; font-size: 2rem; }
 .repair-head p { margin: 0; max-width: 56ch; }
 .timer { font-family: var(--display); font-size: 2rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.timebar { display: block; height: 10px; margin: 10px 0 4px; background: var(--plate); border: 1px solid var(--brass); }
-.timebar span { display: block; height: 100%; background: var(--ink); }
+.timebar { display: block; height: 10px; margin: 10px 0 4px; overflow: hidden; background: rgba(248, 242, 228, 0.18); border: 1px solid var(--glass-edge); border-radius: var(--r-control); }
+.timebar span { display: block; height: 100%; background: var(--face); border-radius: inherit; }
 .over { width: min(420px, calc(100% - 32px)); }
 .over h2 { margin: 0 0 8px; font-size: 2rem; }
 
@@ -392,8 +386,9 @@ kbd {
 }
 
 /* ---- Run notices ------------------------------------------------------------ */
-.callout.count { padding: 4px 28px; font-size: clamp(3.5rem, 12vw, 6.5rem); line-height: 1.1; }
-.gauge.notice { background: var(--ink); color: var(--face); border-color: var(--ink); font-weight: 600; align-self: center; }
+/* The countdown sits in a brass-ringed glass dial, like the speedometer. */
+.callout.count { display: grid; place-items: center; width: 1.6em; height: 1.6em; padding: 0; font-size: clamp(3.5rem, 12vw, 6.5rem); line-height: 1; border: 3px solid #c9a04a; border-radius: 50%; }
+.notice { font-weight: 600; align-self: center; }
 .turn-sign {
   position: absolute;
   top: 46%;
@@ -403,13 +398,10 @@ kbd {
   align-items: center;
   gap: 2px;
   padding: 10px 14px 8px;
-  background: var(--face);
-  border: 3px solid var(--ink);
-  border-radius: 6px;
   font-weight: 600;
   pointer-events: none;
 }
-.turn-sign svg { width: 52px; height: 52px; fill: none; stroke: var(--ink); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.turn-sign svg { width: 52px; height: 52px; fill: none; stroke: var(--face); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .turn-sign[data-dir='right'] svg { transform: scaleX(-1); }
 .over { text-align: center; }
 .over h2 { font-size: 2.6rem; }
@@ -431,12 +423,7 @@ kbd {
 .glass {
   margin: 0;
   padding: 5px 12px;
-  color: var(--face);
-  background: rgba(28, 22, 36, 0.62);
-  border: 1px solid rgba(248, 242, 228, 0.3);
-  border-radius: 6px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  border-radius: var(--r-control);
   font-variant-numeric: tabular-nums;
   line-height: 1.35;
   text-align: center;
@@ -448,24 +435,36 @@ kbd {
   .glass { min-width: 6.5em; padding: 4px 10px; }
 }
 
-/* Glass over the moving scene: the loss screen, the pause menu, the Pause button and the steering buttons.
-   Same smoked tint as the dashboard panels; light text passes 4.5:1 over every part of the scene. */
-.over, .panel, .hud-button, .steer button {
+/* Everything over the moving scene is the same glass: dashboard panels, messages, the bend sign, the
+   countdown dial, the Pause and steering buttons, the pause menu, the repair pop-up and the loss screen.
+   Light text passes 4.5:1 on this tint over every part of the scene, by day and by night. */
+.glass, .callout, .turn-sign, .over, .panel, .repair, .hud-button, .steer button {
   color: var(--face);
-  background: rgba(28, 22, 36, 0.62);
-  border: 1px solid rgba(248, 242, 228, 0.3);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--glass);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
-.over { border-radius: 8px; }
-.over::backdrop { background: rgba(20, 16, 28, 0.3); }
+.callout, .turn-sign, .over, .panel, .repair { border-radius: var(--r-panel); }
+.hud-button, .steer button { border-radius: var(--r-control); }
+.over::backdrop, .repair::backdrop { background: rgba(20, 16, 28, 0.3); }
 .overlay { background: rgba(20, 16, 28, 0.3); }
 .over .gauge-label { color: var(--face); }
 .over .quiet, .panel .quiet { color: var(--face); background: transparent; border-color: rgba(248, 242, 228, 0.55); }
-.over .quiet:hover, .panel .quiet:hover, .hud-button:hover { border-color: var(--face); background: rgba(28, 22, 36, 0.8); }
-.steer button:active { background: rgba(28, 22, 36, 0.85); }
+.over .quiet:hover, .panel .quiet:hover, .hud-button:hover { border-color: var(--face); background: var(--glass-strong); }
+.steer button:active { background: var(--glass-strong); }
 /* The ink focus ring would vanish on dark glass, so these use a light one. */
 .over :focus-visible, .panel :focus-visible, .hud-button:focus-visible, .steer button:focus-visible { outline-color: var(--face); }
+/* The repair pop-up: its header is glass like the rest; the puzzle itself sits on a paper card, because
+   the circuit board and code snippets are drawn for ink on paper. */
+.repair #repair-slot { margin-top: 12px; padding: 14px 16px; color: var(--ink); background: var(--paper); border-radius: var(--r-control); }
+.repair #repair-slot:empty { display: none; }
+/* On phones the pause menu and loss screen rise from the bottom as sheets, where thumbs reach the buttons. */
+@media (max-width: 600px) {
+  .overlay { align-items: flex-end; padding: 0; }
+  .panel { max-width: none; width: 100%; border-radius: var(--r-panel) var(--r-panel) 0 0; border-bottom: 0; }
+  .over { width: 100%; max-width: none; margin: auto 0 0; border-radius: var(--r-panel) var(--r-panel) 0 0; border-bottom: 0; }
+}
 /* The pause menu reads like the loss screen: everything centred. */
 .panel { text-align: center; }
 .panel .menu-actions { justify-content: center; }
@@ -514,7 +513,7 @@ kbd {
   padding: 28px 32px;
   background: var(--paper);
   border: 1px solid var(--brass);
-  border-radius: 10px;
+  border-radius: var(--r-panel);
   box-shadow: 0 24px 60px rgba(14, 10, 24, 0.5); /* lifts the panel off the moving scene */
 }
 #practice { min-height: 100vh; background: var(--paper); } /* practice needs a calm, plain page */
@@ -544,20 +543,31 @@ button:active { transform: translateY(1px) scale(0.98); box-shadow: none; }
   .topfive li:nth-child(3) { animation-delay: 0.1s; }
   .topfive li:nth-child(4) { animation-delay: 0.15s; }
   .topfive li:nth-child(5) { animation-delay: 0.2s; }
-  dialog[open], .overlay:not([hidden]) .panel { animation: pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+  dialog[open], .overlay:not([hidden]) .panel { animation: pop 0.35s var(--spring) both; }
+
+  /* The HUD settles in piece by piece each time a run starts: dial, readouts, then the controls. */
+  #drive:not([hidden]) .speedo { animation: drop 0.5s var(--spring) both; }
+  #drive:not([hidden]) .dash-side > .glass { animation: drop 0.5s var(--spring) 0.08s both; }
+  #drive:not([hidden]) .hud-button { animation: drop 0.5s var(--spring) 0.16s both; }
+  #drive:not([hidden]) .steer button { animation: rise 0.5s var(--spring) 0.24s both; }
   dialog[open]::backdrop, .overlay:not([hidden]) { animation: fade 0.3s ease both; }
 
   /* What to react to: messages and countdown numbers pop, the bend sign slides in. */
-  .callout.pop { animation: callout 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+  .callout.pop { animation: callout 0.4s var(--spring) both; }
   .callout.count.pop { animation-duration: 0.5s; }
-  .turn-sign:not([hidden]) { animation: slide 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-  .gauge.notice:not([hidden]) { animation: alert 0.5s ease-in-out 3; } /* three flashes, then it holds still */
+  .turn-sign:not([hidden]) { animation: slide 0.4s var(--spring) both; }
+  .notice:not([hidden]) { animation: drop 0.4s var(--spring) both, alert 0.5s ease-in-out 0.4s 3; } /* three flashes, then it holds still */
   .timebar.critical span { animation: alert-bar 0.6s ease-in-out infinite alternate; } /* only in the last 15% of the clock */
 
   /* Answer feedback in coding faults. */
   .choice.wrong { animation: shake 0.35s ease; }
-  .choice.right { animation: pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.3); }
+  .choice.right { animation: pop 0.3s var(--spring); }
 }
+@media (prefers-reduced-motion: no-preference) and (max-width: 600px) {
+  .over[open], .overlay:not([hidden]) .panel { animation: sheet 0.45s var(--settle) both; }
+}
+@keyframes drop { from { opacity: 0; transform: translateY(-14px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes sheet { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 @keyframes fade { from { opacity: 0; } }
