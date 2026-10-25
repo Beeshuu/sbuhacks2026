@@ -1701,6 +1701,7 @@ for (const [id, dir] of [['steer-left', 'left'], ['steer-right', 'right']]) {
   const b = el(id);
   const set = (on) => (e) => { e.preventDefault(); keys[dir] = on; };
   b.addEventListener('pointerdown', set(true));
+  b.addEventListener('mousedown', (e) => e.preventDefault()); // focus stays on the game, so no ring appears on the button
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, set(false));
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && run && !run.paused) pause(true); });

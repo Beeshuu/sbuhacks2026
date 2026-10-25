@@ -297,6 +297,8 @@ a { color: var(--ink); text-underline-offset: 3px; }
   pointer-events: auto;
   touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; /* no grey flash on phones */
   font-size: 1.8rem;
   cursor: pointer;
 }
@@ -452,9 +454,8 @@ kbd {
 .over .gauge-label { color: var(--face); }
 .over .quiet, .panel .quiet { color: var(--face); background: transparent; border-color: rgba(248, 242, 228, 0.55); }
 .over .quiet:hover, .panel .quiet:hover, .hud-button:hover { border-color: var(--face); background: var(--glass-strong); }
-.steer button:active { background: var(--glass-strong); }
 /* The ink focus ring would vanish on dark glass, so these use a light one. */
-.over :focus-visible, .panel :focus-visible, .hud-button:focus-visible, .steer button:focus-visible { outline-color: var(--face); }
+.over :focus-visible, .panel :focus-visible, .hud-button:focus-visible { outline-color: var(--face); }
 /* The repair pop-up: its header is glass like the rest; the puzzle itself sits on a paper card, because
    the circuit board and code snippets are drawn for ink on paper. */
 .repair #repair-slot { margin-top: 12px; padding: 14px 16px; color: var(--ink); background: var(--paper); border-radius: var(--r-control); }
