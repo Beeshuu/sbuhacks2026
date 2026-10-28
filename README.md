@@ -1,3 +1,5 @@
+## SBUHacks2026 Solana Track Winner for MLH
+
 # SBUHack_F26
 Stony Brook University hackathon, 10/23/26-10/25/26
 
@@ -18,5 +20,5 @@ Check every coding question against real Python output: `node questions.test.js`
 To record a run you need the Phantom extension and a little devnet SOL (free at faucet.solana.com).
 
 # Authors
-Ethan Guo, Bishal Nath, Susmoy Kar
+Ethan Guo, Bishal Nath
 
